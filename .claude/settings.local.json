@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(npm run build:*)",
+      "Bash(npm run dev:*)",
+      "Bash(dir:*)",
+      "Bash(cmd /c \"dir C:\\\\Users\\\\Owner\\\\package*.json\")",
+      "Bash(curl:*)",
+      "Bash(cat:*)",
+      "Bash(git config:*)"
+    ]
+  }
+}
