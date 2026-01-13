@@ -133,11 +133,23 @@ function parseAndValidateContent(
     }
     cleanText = cleanText.trim();
 
-    const parsed = JSON.parse(cleanText) as GeneratedContent;
+    let parsed = JSON.parse(cleanText);
+
+    // Handle case where Gemini returns an array instead of an object
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      parsed = parsed[0];
+    }
 
     // Validate required fields exist
-    if (!parsed.title || !parsed.meta_description || !parsed.h1 || !parsed.intro_content || !parsed.detailed_content) {
-      console.warn("Missing required fields in Gemini response");
+    const missingFields = [];
+    if (!parsed.title) missingFields.push("title");
+    if (!parsed.meta_description) missingFields.push("meta_description");
+    if (!parsed.h1) missingFields.push("h1");
+    if (!parsed.intro_content) missingFields.push("intro_content");
+    if (!parsed.detailed_content) missingFields.push("detailed_content");
+
+    if (missingFields.length > 0) {
+      console.warn(`Missing required fields in Gemini response: ${missingFields.join(", ")}`);
       return getFallbackContent(cityData, lifetimeSavings, currentYear, sunHours);
     }
 
