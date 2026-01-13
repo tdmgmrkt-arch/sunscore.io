@@ -1,11 +1,13 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import dynamic from "next/dynamic";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
-import Script from "next/script";
-import usePlacesAutocomplete, { getGeocode, getLatLng } from "use-places-autocomplete";
+import AddressAutocomplete from "@/components/AddressAutocomplete";
+import { getPricePerWatt } from "@/utils/solar-pricing";
+import { getElectricityRate } from "@/utils/electricity-rates";
 import {
   Sun,
   Zap,
@@ -25,11 +27,7 @@ import {
   Check,
   Database,
   Home,
-  Loader2,
 } from "lucide-react";
-
-// Google Maps API Key
-const GOOGLE_MAPS_API_KEY = "AIzaSyAYEGZ7tuLPfo70otuylrtaSWd7yANpsUk";
 
 // =============================================================================
 // TYPES
@@ -45,8 +43,6 @@ interface SolarData {
 interface CalculationResults {
   annualProduction: number;
   systemCost: number;
-  federalITC: number;
-  netSystemCost: number;
   firstYearSavings: number;
   twentyFiveYearSavings: number;
   twentyFiveYearUtilityCost: number;
@@ -54,11 +50,22 @@ interface CalculationResults {
   paybackYears: number;
   monthlyPayment: number;
   co2Offset: number;
+  treesEquivalent: number;
   locationName: string;
   yearlyData: { year: number; utilityCost: number; solarCost: number }[];
   sunScore: number;
   sunHours: number;
   zipCode: string;
+}
+
+// Preloaded solar data from server-side NREL fetch
+export interface PreloadedSolarData {
+  outputs: {
+    ac_annual: number;
+    solrad_annual: number;
+    ac_monthly: number[];
+  };
+  station_distance_miles: number;
 }
 
 interface SolarCalculatorClientProps {
@@ -69,14 +76,18 @@ interface SolarCalculatorClientProps {
   stateName: string;
   stateId: string;
   currentYear: number;
+  preloadedSolarData?: PreloadedSolarData;
+  initialMonthlyBill?: number; // Dynamic bill from NREL/climate data
+  // Named slots for server-rendered content
+  introSlot?: React.ReactNode; // For "Why Solar" text (between Score & Chart)
+  detailedSlot?: React.ReactNode; // For "Financial Deep Dive" (above FAQ)
+  nearbyCitiesSlot?: React.ReactNode; // For nearby city links (below FAQ, above footer)
 }
 
 // =============================================================================
 // CONSTANTS
 // =============================================================================
 const SYSTEM_SIZE_WATTS = 6000;
-const COST_PER_WATT = 3.0;
-const FEDERAL_ITC_RATE = 0.3;
 const UTILITY_INFLATION_RATE = 0.04;
 const YEARS_ANALYSIS = 25;
 
@@ -112,6 +123,74 @@ function useDebounce<T>(value: T, delay: number): T {
 
   return debouncedValue;
 }
+
+// =============================================================================
+// SKELETON COMPONENTS (for CLS prevention)
+// =============================================================================
+
+function ChartSkeleton() {
+  return (
+    <div className="w-full min-h-[200px] animate-pulse">
+      <div className="h-4 w-40 bg-gray-700/50 rounded mx-auto mb-4" />
+      <div className="h-[140px] bg-gray-800/30 rounded-lg" />
+      <div className="flex justify-between mt-3 px-4">
+        <div className="h-3 w-12 bg-gray-700/50 rounded" />
+        <div className="h-3 w-12 bg-gray-700/50 rounded" />
+        <div className="h-3 w-12 bg-gray-700/50 rounded" />
+      </div>
+    </div>
+  );
+}
+
+function IntroSlotSkeleton() {
+  return (
+    <div className="w-full min-h-[120px] bg-emerald-950/20 border border-emerald-900/30 rounded-xl p-6 animate-pulse">
+      <div className="h-5 w-48 bg-gray-700/50 rounded mb-3" />
+      <div className="space-y-2">
+        <div className="h-3 w-full bg-gray-700/30 rounded" />
+        <div className="h-3 w-4/5 bg-gray-700/30 rounded" />
+        <div className="h-3 w-3/4 bg-gray-700/30 rounded" />
+      </div>
+    </div>
+  );
+}
+
+function DetailedSlotSkeleton() {
+  return (
+    <div className="max-w-4xl mx-auto min-h-[300px] animate-pulse">
+      <div className="text-center mb-8">
+        <div className="h-8 w-64 bg-gray-700/50 rounded mx-auto mb-3" />
+        <div className="h-4 w-80 bg-gray-700/30 rounded mx-auto" />
+      </div>
+      <div className="p-6 md:p-8 bg-gradient-to-br from-gray-900/90 via-slate-950/95 to-gray-900/90 border border-cyan-500/20 rounded-2xl">
+        <div className="space-y-6">
+          <div className="h-5 w-56 bg-gray-700/50 rounded" />
+          <div className="space-y-2">
+            <div className="h-3 w-full bg-gray-700/30 rounded" />
+            <div className="h-3 w-11/12 bg-gray-700/30 rounded" />
+            <div className="h-3 w-4/5 bg-gray-700/30 rounded" />
+          </div>
+          <div className="h-5 w-48 bg-gray-700/50 rounded mt-6" />
+          <div className="space-y-2">
+            <div className="h-3 w-full bg-gray-700/30 rounded" />
+            <div className="h-3 w-10/12 bg-gray-700/30 rounded" />
+            <div className="h-3 w-3/4 bg-gray-700/30 rounded" />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// =============================================================================
+// LAZY-LOADED COMPONENTS (Performance optimization)
+// =============================================================================
+
+// Dynamically import the chart to reduce initial bundle size
+const SavingsChart = dynamic(() => import("./SavingsChart"), {
+  ssr: false,
+  loading: () => <ChartSkeleton />,
+});
 
 // =============================================================================
 // COMPONENTS (Inlined)
@@ -154,230 +233,6 @@ function CountUp({
   }, [value, duration]);
 
   return <span>{formatCurrency(displayValue)}</span>;
-}
-
-function SavingsChart({
-  yearlyData,
-}: {
-  yearlyData: { year: number; utilityCost: number; solarCost: number }[];
-}) {
-  const chartWidth = 340;
-  const chartHeight = 140;
-  const padding = { top: 20, right: 20, bottom: 35, left: 55 };
-  const innerWidth = chartWidth - padding.left - padding.right;
-  const innerHeight = chartHeight - padding.top - padding.bottom;
-
-  const maxY = Math.max(...yearlyData.map((d) => d.utilityCost)) * 1.1;
-
-  const scaleX = (year: number) =>
-    padding.left + (year / YEARS_ANALYSIS) * innerWidth;
-  const scaleY = (value: number) =>
-    chartHeight - padding.bottom - (value / maxY) * innerHeight;
-
-  // Generate path for utility cost (cumulative)
-  const utilityPath = yearlyData
-    .map((d, i) => `${i === 0 ? "M" : "L"} ${scaleX(d.year)} ${scaleY(d.utilityCost)}`)
-    .join(" ");
-
-  // Generate path for solar cost (flat line at net system cost)
-  const solarPath = `M ${scaleX(0)} ${scaleY(yearlyData[0].solarCost)} L ${scaleX(YEARS_ANALYSIS)} ${scaleY(yearlyData[YEARS_ANALYSIS].solarCost)}`;
-
-  // Generate area fill path (the savings gap)
-  const areaPath = `${utilityPath} L ${scaleX(YEARS_ANALYSIS)} ${scaleY(yearlyData[YEARS_ANALYSIS].solarCost)} L ${scaleX(0)} ${scaleY(yearlyData[0].solarCost)} Z`;
-
-  // Y-axis tick values
-  const yTicks = [0, 0.25, 0.5, 0.75, 1].map((ratio) => maxY * ratio);
-
-  return (
-    <div className="w-full">
-      <h3 className="text-sm font-semibold text-gray-300 mb-2 text-center">
-        25-Year Cost Comparison
-      </h3>
-      <svg
-        viewBox={`0 0 ${chartWidth} ${chartHeight}`}
-        className="w-full h-auto"
-        role="img"
-        aria-label="Chart comparing utility costs vs solar costs over 25 years"
-      >
-        <defs>
-          {/* Savings gradient (card fill / background usage) */}
-          <linearGradient
-            id="savingsGradientCity"
-            x1="0%"
-            y1="0%"
-            x2="0%"
-            y2="100%"
-          >
-            <stop offset="0%" stopColor="#10b981" stopOpacity="0.4" />
-            <stop offset="100%" stopColor="#10b981" stopOpacity="0.05" />
-          </linearGradient>
-
-          {/* Utility cost gradient */}
-          <linearGradient id="utilityGradientCity" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#ef4444" />
-            <stop offset="100%" stopColor="#f97316" />
-          </linearGradient>
-
-          {/* Solar progress stroke gradient */}
-          <linearGradient id="solarGradientCity" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#10b981" />
-            <stop offset="100%" stopColor="#22c55e" />
-          </linearGradient>
-        </defs>
-
-        {/* Grid lines */}
-        {yTicks.map((tick, i) => (
-          <g key={i}>
-            <line
-              x1={padding.left}
-              y1={scaleY(tick)}
-              x2={chartWidth - padding.right}
-              y2={scaleY(tick)}
-              stroke="#374151"
-              strokeDasharray="4,4"
-              strokeOpacity="0.5"
-            />
-            <text
-              x={padding.left - 8}
-              y={scaleY(tick)}
-              textAnchor="end"
-              alignmentBaseline="middle"
-              className="fill-gray-500"
-              fontSize="8"
-            >
-              ${Math.round(tick / 1000)}k
-            </text>
-          </g>
-        ))}
-
-        {/* X-axis labels */}
-        {[0, 5, 10, 15, 20, 25].map((year) => (
-          <text
-            key={year}
-            x={scaleX(year)}
-            y={chartHeight - padding.bottom + 14}
-            textAnchor="middle"
-            className="fill-gray-500"
-            fontSize="8"
-          >
-            Yr {year}
-          </text>
-        ))}
-
-        {/* Axis labels */}
-        <text
-          x={chartWidth / 2}
-          y={chartHeight - 3}
-          textAnchor="middle"
-          className="fill-gray-400"
-          fontSize="8"
-        >
-          Years
-        </text>
-        <text
-          x={10}
-          y={chartHeight / 2}
-          textAnchor="middle"
-          className="fill-gray-400"
-          fontSize="8"
-          transform={`rotate(-90, 10, ${chartHeight / 2})`}
-        >
-          Cumulative Cost
-        </text>
-
-        {/* Savings area fill */}
-        <motion.path
-          d={areaPath}
-          fill="url(#savingsGradientCity)"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 1, delay: 0.5 }}
-        />
-
-        {/* Utility cost line (red/orange gradient) */}
-        <motion.path
-          d={utilityPath}
-          fill="none"
-          stroke="url(#utilityGradientCity)"
-          strokeWidth="3"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          initial={{ pathLength: 0 }}
-          animate={{ pathLength: 1 }}
-          transition={{ duration: 1.5, ease: "easeOut" }}
-        />
-
-        {/* Solar cost line (green gradient) */}
-        <motion.path
-          d={solarPath}
-          fill="none"
-          stroke="url(#solarGradientCity)"
-          strokeWidth="3"
-          strokeLinecap="round"
-          initial={{ pathLength: 0 }}
-          animate={{ pathLength: 1 }}
-          transition={{ duration: 1.5, ease: "easeOut", delay: 0.2 }}
-        />
-
-        {/* Data point markers */}
-        <motion.circle
-          cx={scaleX(YEARS_ANALYSIS)}
-          cy={scaleY(yearlyData[YEARS_ANALYSIS].utilityCost)}
-          r="5"
-          fill="#ef4444"
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          transition={{ delay: 1.5 }}
-        />
-        <motion.circle
-          cx={scaleX(YEARS_ANALYSIS)}
-          cy={scaleY(yearlyData[YEARS_ANALYSIS].solarCost)}
-          r="5"
-          fill="#10b981"
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          transition={{ delay: 1.7 }}
-        />
-
-        {/* Savings annotation */}
-        <motion.g
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 2 }}
-        >
-          <line
-            x1={scaleX(18)}
-            y1={scaleY(yearlyData[18].utilityCost)}
-            x2={scaleX(18)}
-            y2={scaleY(yearlyData[18].solarCost)}
-            stroke="#10b981"
-            strokeWidth="2"
-            strokeDasharray="4,2"
-          />
-          <text
-            x={scaleX(18) + 8}
-            y={(scaleY(yearlyData[18].utilityCost) + scaleY(yearlyData[18].solarCost)) / 2}
-            className="fill-emerald-400 font-semibold"
-            fontSize="11"
-          >
-            Savings
-          </text>
-        </motion.g>
-      </svg>
-
-      {/* Legend */}
-      <div className="flex justify-center gap-8 mt-4">
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-1 rounded-full bg-gradient-to-r from-red-500 to-orange-500" />
-          <span className="text-xs text-gray-400">Utility (Doing Nothing)</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-4 h-1 rounded-full bg-gradient-to-r from-emerald-500 to-green-500" />
-          <span className="text-xs text-gray-400">Solar (Owning)</span>
-        </div>
-      </div>
-    </div>
-  );
 }
 
 function StatCard({
@@ -554,9 +409,17 @@ function SunScoreGauge({
         >
           {scoreInfo.label}
         </p>
-        <p className="text-xs md:text-sm text-gray-400 mt-1">
-          {sunHours.toFixed(1)} peak sun hours/day
-        </p>
+        {/* Mini Peak Sun Badge */}
+        <div className="mt-2 inline-flex items-center gap-3 bg-gray-950/50 border border-gray-800 rounded-lg px-16 py-2 backdrop-blur-sm">
+          <div className="text-left">
+            <div className="text-[10px] text-gray-400 uppercase tracking-wider font-bold leading-none mb-0.5">
+            ☀️ Peak Sun
+            </div>
+            <div className="text-[12px] mt-2 font-bold text-white leading-none">
+              {sunHours.toFixed(1)} Hours/Day
+            </div>
+          </div>
+        </div>
       </motion.div>
 
       {/* NREL Badge */}
@@ -702,115 +565,6 @@ function FAQItem({
   );
 }
 
-// Address Autocomplete Component
-function AddressAutocomplete({
-  initialAddress,
-  initialLat,
-  initialLng,
-  cityName,
-  stateId,
-  onSelect,
-  onChange,
-  isGoogleLoaded,
-}: {
-  initialAddress: string;
-  initialLat: number;
-  initialLng: number;
-  cityName: string;
-  stateId: string;
-  onSelect: (lat: number, lng: number, address: string) => void;
-  onChange: (address: string) => void;
-  isGoogleLoaded: boolean;
-}) {
-  const {
-    ready,
-    value,
-    suggestions: { status, data },
-    setValue,
-    clearSuggestions,
-  } = usePlacesAutocomplete({
-    requestOptions: {
-      locationBias: isGoogleLoaded
-        ? {
-            center: { lat: initialLat, lng: initialLng },
-            radius: 50000, // 50km radius bias
-          }
-        : undefined,
-      componentRestrictions: { country: "us" },
-      types: ["address"],
-    },
-    debounce: 300,
-    defaultValue: initialAddress,
-  });
-
-  const handleSelect = async (description: string) => {
-    setValue(description, false);
-    clearSuggestions();
-
-    try {
-      const results = await getGeocode({ address: description });
-      const { lat, lng } = await getLatLng(results[0]);
-      onSelect(lat, lng, description);
-    } catch (error) {
-      console.error("Error getting geocode:", error);
-    }
-  };
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newValue = e.target.value;
-    setValue(newValue);
-    onChange(newValue);
-  };
-
-  return (
-    <div className="relative flex-1">
-      <div className="relative">
-        <input
-          type="text"
-          value={value}
-          onChange={handleChange}
-          disabled={!ready}
-          placeholder={`Enter your address in ${cityName}, ${stateId}`}
-          className="w-full px-4 py-3.5 bg-gray-800/80 border border-gray-700 rounded-xl text-base md:text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all pr-10"
-          autoComplete="off"
-        />
-        {!ready && isGoogleLoaded && (
-          <div className="absolute right-3 top-1/2 -translate-y-1/2">
-            <Loader2 className="w-5 h-5 text-gray-500 animate-spin" />
-          </div>
-        )}
-      </div>
-
-      {/* Suggestions Dropdown */}
-      {status === "OK" && data.length > 0 && (
-        <ul className="absolute z-50 w-full mt-1 bg-gray-800 border border-gray-700 rounded-xl shadow-xl overflow-hidden max-h-60 overflow-y-auto">
-          {data.map((suggestion) => {
-            const {
-              place_id,
-              structured_formatting: { main_text, secondary_text },
-            } = suggestion;
-
-            return (
-              <li
-                key={place_id}
-                onClick={() => handleSelect(suggestion.description)}
-                className="px-4 py-3 cursor-pointer hover:bg-gray-700/80 transition-colors border-b border-gray-700/50 last:border-b-0"
-              >
-                <div className="flex items-start gap-3">
-                  <MapPin className="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" />
-                  <div>
-                    <p className="text-white text-sm font-medium">{main_text}</p>
-                    <p className="text-gray-400 text-xs">{secondary_text}</p>
-                  </div>
-                </div>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-    </div>
-  );
-}
 
 // =============================================================================
 // MAIN COMPONENT
@@ -823,11 +577,17 @@ export default function SolarCalculatorClient({
   stateName,
   stateId,
   currentYear,
+  preloadedSolarData,
+  initialMonthlyBill,
+  introSlot,
+  detailedSlot,
+  nearbyCitiesSlot,
 }: SolarCalculatorClientProps) {
   const [address, setAddress] = useState(initialAddress);
-  const [isGoogleLoaded, setIsGoogleLoaded] = useState(false);
-  const [monthlyBill, setMonthlyBill] = useState(150);
-  const [billInputValue, setBillInputValue] = useState("150");
+  const [selectedLat, setSelectedLat] = useState<number>(initialLat);
+  const [selectedLng, setSelectedLng] = useState<number>(initialLng);
+  const [monthlyBill, setMonthlyBill] = useState(initialMonthlyBill || 150);
+  const [billInputValue, setBillInputValue] = useState(String(initialMonthlyBill || 150));
   const [isLoading, setIsLoading] = useState(false);
   const [results, setResults] = useState<CalculationResults | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -845,11 +605,10 @@ export default function SolarCalculatorClient({
   const debouncedMonthlyBill = useDebounce(monthlyBill, 300);
 
   const calculateResults = useCallback(
-    (solarData: SolarData, currentMonthlyBill: number, locationName: string, zip: string): CalculationResults => {
+    (solarData: SolarData, currentMonthlyBill: number, locationName: string, zip: string, currentStateId: string): CalculationResults => {
       const annualProduction = solarData.outputs.ac_annual;
-      const systemCost = SYSTEM_SIZE_WATTS * COST_PER_WATT;
-      const federalITC = systemCost * FEDERAL_ITC_RATE;
-      const netSystemCost = systemCost - federalITC;
+      const pricePerWatt = getPricePerWatt(currentStateId);
+      const systemCost = SYSTEM_SIZE_WATTS * pricePerWatt;
 
       const sunHours = solarData.outputs.solrad_annual || 5.0;
 
@@ -875,27 +634,27 @@ export default function SolarCalculatorClient({
           const inflatedBill = annualBill * Math.pow(1 + UTILITY_INFLATION_RATE, year - 1);
           cumulativeUtilityCost += inflatedBill;
         }
-        yearlyData.push({ year, utilityCost: cumulativeUtilityCost, solarCost: netSystemCost });
+        yearlyData.push({ year, utilityCost: cumulativeUtilityCost, solarCost: systemCost });
       }
 
       const twentyFiveYearUtilityCost = cumulativeUtilityCost;
-      const twentyFiveYearSavings = twentyFiveYearUtilityCost - netSystemCost;
+      const twentyFiveYearSavings = twentyFiveYearUtilityCost - systemCost;
       const firstYearSavings = annualBill;
-      const paybackYears = netSystemCost / annualBill;
+      const paybackYears = systemCost / annualBill;
       const co2Offset = (annualProduction * 0.0007) * YEARS_ANALYSIS;
+      const treesEquivalent = Math.round(co2Offset * 16.5);
 
       return {
         annualProduction,
         systemCost,
-        federalITC,
-        netSystemCost,
         firstYearSavings,
         twentyFiveYearSavings,
         twentyFiveYearUtilityCost,
-        twentyFiveYearSolarCost: netSystemCost,
+        twentyFiveYearSolarCost: systemCost,
         paybackYears: Math.round(paybackYears * 10) / 10,
-        monthlyPayment: Math.round(netSystemCost / (YEARS_ANALYSIS * 12)),
+        monthlyPayment: Math.round(systemCost / (YEARS_ANALYSIS * 12)),
         co2Offset: Math.round(co2Offset),
+        treesEquivalent,
         locationName,
         yearlyData,
         sunScore,
@@ -912,11 +671,12 @@ export default function SolarCalculatorClient({
         cachedSolarData.current,
         debouncedMonthlyBill,
         results.locationName,
-        results.zipCode
+        results.zipCode,
+        stateId
       );
       setResults(newResults);
     }
-  }, [debouncedMonthlyBill, calculateResults, hasInteracted]);
+  }, [debouncedMonthlyBill, calculateResults, hasInteracted, stateId]);
 
   useEffect(() => {
     setNeighborCount(Math.floor(Math.random() * (180 - 120 + 1)) + 120);
@@ -938,9 +698,28 @@ export default function SolarCalculatorClient({
   useEffect(() => {
     if (!autoLoaded && initialLat && initialLng) {
       setAutoLoaded(true);
-      fetchSolarDataWithCoords(initialLat, initialLng, initialAddress);
+
+      // If we have preloaded solar data from server, use it immediately
+      if (preloadedSolarData) {
+        const solarData: SolarData = {
+          outputs: preloadedSolarData.outputs,
+        };
+        cachedSolarData.current = solarData;
+        const calculatedResults = calculateResults(
+          solarData,
+          monthlyBill,
+          initialAddress,
+          stateId,
+          stateId
+        );
+        setResults(calculatedResults);
+        setHasInteracted(true);
+      } else {
+        // Fallback to fetching if no preloaded data
+        fetchSolarDataWithCoords(initialLat, initialLng, initialAddress);
+      }
     }
-  }, [initialLat, initialLng, initialAddress, autoLoaded]);
+  }, [initialLat, initialLng, initialAddress, autoLoaded, preloadedSolarData, calculateResults, monthlyBill, stateId]);
 
   const fetchSolarDataWithCoords = async (lat: number, lng: number, locationName: string) => {
     setIsLoading(true);
@@ -964,7 +743,7 @@ export default function SolarCalculatorClient({
 
       cachedSolarData.current = solarData;
 
-      const calculatedResults = calculateResults(solarData, monthlyBill, locationName, stateId);
+      const calculatedResults = calculateResults(solarData, monthlyBill, locationName, stateId, stateId);
       setResults(calculatedResults);
 
     } catch (err) {
@@ -1029,12 +808,6 @@ export default function SolarCalculatorClient({
     fetchSolarData();
   };
 
-  // Handle address selection from Google Places Autocomplete
-  const handleAddressSelect = (lat: number, lng: number, selectedAddress: string) => {
-    setAddress(selectedAddress);
-    fetchSolarDataWithCoords(lat, lng, selectedAddress);
-  };
-
   const handleShareScore = async () => {
     if (!results) return;
     const shareText = `My house in ${cityName} has a SunScore of ${results.sunScore}/100! Check yours at SunScore.io`;
@@ -1062,8 +835,8 @@ export default function SolarCalculatorClient({
       answer: `Solar savings in ${cityName}, ${stateName} depend on your current electricity usage, roof orientation, and local utility rates. Our calculator uses official NREL satellite data specific to ${cityName}'s location to provide accurate estimates. Most homeowners save $15,000-$50,000 over 25 years.`,
     },
     {
-      question: "How does the 30% Federal Tax Credit work?",
-      answer: "The Investment Tax Credit (ITC) allows you to deduct 30% of your total solar installation cost directly from your federal taxes owed. This credit is available through 2032 under the Inflation Reduction Act.",
+      question: "How long does it take for solar to pay for itself?",
+      answer: `The payback period for solar in ${cityName} depends on your electricity costs, system size, and local sun exposure. Most homeowners see their system pay for itself in 6-10 years through electricity savings. After that point, you're generating free electricity for the remaining life of your system.`,
     },
     {
       question: `What is the average SunScore in ${stateName}?`,
@@ -1077,13 +850,6 @@ export default function SolarCalculatorClient({
 
   return (
     <>
-      {/* Google Maps Script - Load early for Places autocomplete */}
-      <Script
-        src={`https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places`}
-        strategy="afterInteractive"
-        onLoad={() => setIsGoogleLoaded(true)}
-      />
-
       <main className="min-h-screen bg-gradient-to-b from-gray-950 via-gray-900 to-gray-950 text-white">
       {/* Header */}
       <header className="sticky top-0 z-40 w-full border-b border-slate-800/50 bg-slate-950/80 backdrop-blur-md">
@@ -1092,9 +858,9 @@ export default function SolarCalculatorClient({
             <Image
               src="/sunscore.logo.png"
               alt="SunScore"
-              width={200}
-              height={48}
-              className="h-8 w-auto md:h-12 max-w-[130px] md:max-w-[200px]"
+              width={230}
+              height={50}
+              className="h-8 w-auto md:h-12"
               priority
             />
           </Link>
@@ -1155,10 +921,8 @@ export default function SolarCalculatorClient({
             </h1>
 
             <p className="text-base md:text-xl text-gray-400 max-w-2xl mx-auto leading-relaxed">
-              See exactly how much you&apos;ll save with solar in {cityName}, {stateName} based on {currentYear} electric rates.
-              <br className="hidden sm:block" />
-              Includes your{" "}
-              <span className="text-emerald-400 font-semibold">30% Federal Tax Credit</span>.
+              See how much you could save with solar in {cityName}, {stateName} based on {currentYear} electric rates.
+              <span className="text-emerald-400 font-semibold"> 25-year savings estimate</span> for your location.
             </p>
 
             <motion.div
@@ -1169,7 +933,7 @@ export default function SolarCalculatorClient({
             >
               {[
                 { icon: Shield, text: "NREL Verified Data" },
-                { icon: Award, text: "ITC Eligible" },
+                { icon: Award, text: "25-Year Savings" },
                 { icon: Leaf, text: "Clean Energy" },
                 { icon: Clock, text: "Instant Results" },
               ].map(({ icon: Icon, text }) => (
@@ -1212,28 +976,15 @@ export default function SolarCalculatorClient({
                 Your Address in {cityName}
               </label>
               <div className="flex flex-col sm:flex-row gap-3">
-                {isGoogleLoaded ? (
-                  <AddressAutocomplete
-                    initialAddress={initialAddress}
-                    initialLat={initialLat}
-                    initialLng={initialLng}
-                    cityName={cityName}
-                    stateId={stateId}
-                    onSelect={handleAddressSelect}
-                    onChange={(addr) => setAddress(addr)}
-                    isGoogleLoaded={isGoogleLoaded}
-                  />
-                ) : (
-                  <input
-                    id="address"
-                    type="text"
-                    value={address}
-                    onChange={(e) => setAddress(e.target.value)}
-                    placeholder={`Enter your address in ${cityName}, ${stateId}`}
-                    className="flex-1 px-4 py-3.5 bg-gray-800/80 border border-gray-700 rounded-xl text-base md:text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
-                    autoComplete="street-address"
-                  />
-                )}
+                <AddressAutocomplete
+                  onSelect={(addr, details) => {
+                    setAddress(addr);
+                    setSelectedLat(details.lat);
+                    setSelectedLng(details.lng);
+                  }}
+                  defaultValue={initialAddress}
+                  placeholder={`Enter your address in ${cityName}, ${stateId}`}
+                />
                 <button
                   type="submit"
                   disabled={isLoading}
@@ -1281,6 +1032,7 @@ export default function SolarCalculatorClient({
                     id="billInputCity"
                     type="text"
                     inputMode="numeric"
+                    aria-label="Monthly Bill Amount"
                     value={billInputValue}
                     onChange={(e) => {
                       const raw = e.target.value.replace(/[^0-9]/g, '');
@@ -1303,6 +1055,10 @@ export default function SolarCalculatorClient({
                   min="50"
                   max="1200"
                   step="10"
+                  aria-label="Monthly Electricity Bill Slider"
+                  aria-valuemin={50}
+                  aria-valuemax={1200}
+                  aria-valuenow={Math.min(monthlyBill, 1200)}
                   value={Math.min(monthlyBill, 1200)}
                   onChange={(e) => setMonthlyBill(Number(e.target.value))}
                   className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-emerald-500"
@@ -1320,8 +1076,8 @@ export default function SolarCalculatorClient({
             </div>
           </form>
 
-          {/* Results Area */}
-          <div className="mt-8" ref={resultsRef}>
+          {/* Results Area - min-height prevents CLS while content loads */}
+          <div className="mt-8 min-h-[400px]" ref={resultsRef}>
             <AnimatePresence mode="wait">
               {isLoading && (
                 <motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
@@ -1436,27 +1192,26 @@ export default function SolarCalculatorClient({
                           </div>
                         </div>
 
-                        {/* Federal Tax Credit - Centered to match Savings card (Clickable) */}
+                        {/* Environmental Impact Card */}
                         <div
-                          onClick={handleGetQuote}
-                          className="p-4 rounded-2xl border border-amber-500/30 bg-gradient-to-br from-amber-950/30 via-slate-900/50 to-amber-950/20 relative overflow-hidden cursor-pointer transition-all duration-300 hover:border-amber-500/50 hover:scale-[1.02]"
-                          style={{ boxShadow: 'inset 0 1px 0 rgba(251, 191, 36, 0.1), 0 0 15px rgba(251, 191, 36, 0.05)' }}
+                          className="p-4 rounded-2xl border border-green-500/30 bg-gradient-to-br from-green-950/30 via-slate-900/50 to-green-950/20 relative overflow-hidden transition-all duration-300 hover:border-green-500/50 hover:scale-[1.02]"
+                          style={{ boxShadow: 'inset 0 1px 0 rgba(34, 197, 94, 0.1), 0 0 15px rgba(34, 197, 94, 0.05)' }}
                         >
                           <div className="relative flex flex-col items-center text-center">
                             <div className="flex items-center gap-2 mb-1">
-                              <ShieldCheck className="w-3.5 h-3.5 text-amber-400/70" />
+                              <Leaf className="w-3.5 h-3.5 text-green-400/70" />
                               <p className="text-[10px] text-white/60 uppercase tracking-[0.15em] font-medium">
-                                Federal Tax Credit
+                                Environmental Impact
                               </p>
                             </div>
                             <p
                               className="text-2xl font-bold text-white"
-                              style={{ textShadow: '0 0 20px rgba(251, 191, 36, 0.4)' }}
+                              style={{ textShadow: '0 0 20px rgba(34, 197, 94, 0.4)' }}
                             >
-                              {formatCurrency(results.federalITC)}
+                              {results.co2Offset} tons
                             </p>
-                            <p className="text-[10px] text-amber-400/60 mt-1">
-                              30% ITC through 2032
+                            <p className="text-[10px] text-green-400/60 mt-1">
+                              CO₂ offset over 25 years
                             </p>
                           </div>
                         </div>
@@ -1464,12 +1219,17 @@ export default function SolarCalculatorClient({
                     </div>
                   </motion.div>
 
+                  {/* INTRO SLOT - Server-rendered "Why Solar" content */}
+                  <div className="w-full min-h-[120px]">
+                    {introSlot || <IntroSlotSkeleton />}
+                  </div>
+
                   {/* Savings Chart - Styled to match Dashboard */}
                   <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.3 }}
-                    className="p-4 bg-gradient-to-br from-gray-900/90 via-slate-950/95 to-gray-900/90 border border-cyan-500/30 rounded-2xl backdrop-blur-sm relative overflow-hidden"
+                    className="p-4 min-h-[220px] bg-gradient-to-br from-gray-900/90 via-slate-950/95 to-gray-900/90 border border-cyan-500/30 rounded-2xl backdrop-blur-sm relative overflow-hidden"
                     style={{
                       boxShadow: '0 0 30px rgba(6, 182, 212, 0.15), 0 0 60px rgba(6, 182, 212, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.05)'
                     }}
@@ -1479,7 +1239,7 @@ export default function SolarCalculatorClient({
                     <div className="absolute bottom-0 right-0 w-32 h-32 bg-emerald-500/5 rounded-full blur-2xl pointer-events-none" />
 
                     <div className="relative z-10">
-                      <SavingsChart yearlyData={results.yearlyData} />
+                      {results ? <SavingsChart yearlyData={results.yearlyData} /> : <ChartSkeleton />}
                     </div>
                   </motion.div>
 
@@ -1497,23 +1257,23 @@ export default function SolarCalculatorClient({
                       iconColor="text-emerald-400"
                     />
                     <StatCard
-                      icon={DollarSign}
-                      label="After Tax Credit"
-                      value={formatCurrency(results.netSystemCost)}
+                      icon={TrendingUp}
+                      label="Payback Period"
+                      value={`${results.paybackYears} years`}
                       highlight
                       iconColor="text-emerald-400"
                     />
                     <StatCard
-                      icon={TrendingUp}
-                      label="Payback Period"
-                      value={`${results.paybackYears} years`}
+                      icon={Zap}
+                      label="First Year Savings"
+                      value={formatCurrency(results.firstYearSavings)}
                       iconColor="text-emerald-400"
                     />
                     <StatCard
-                      icon={Zap}
-                      label="Avg. Monthly Savings"
-                      value={formatCurrency(Math.round(results.twentyFiveYearSavings / 300))}
-                      iconColor="text-emerald-400"
+                      icon={Leaf}
+                      label="Trees Equivalent"
+                      value={`${formatNumber(results.treesEquivalent)} trees`}
+                      iconColor="text-green-400"
                     />
                   </motion.div>
 
@@ -1611,6 +1371,11 @@ export default function SolarCalculatorClient({
           </div>
         </section>
 
+        {/* DETAILED SLOT - Server-rendered financial analysis */}
+        <div className="mt-8 min-h-[300px]">
+          {detailedSlot || <DetailedSlotSkeleton />}
+        </div>
+
         {/* FAQ */}
         <section id="faq" className="mt-16 space-y-6">
           <h2 className="text-2xl md:text-3xl font-bold text-center">
@@ -1630,11 +1395,18 @@ export default function SolarCalculatorClient({
           </div>
         </section>
 
+        {/* NEARBY CITIES SLOT - Server-rendered city links (below FAQ) */}
+        {nearbyCitiesSlot && (
+          <div className="mt-16">
+            {nearbyCitiesSlot}
+          </div>
+        )}
+
         {/* Footer */}
         <footer className="mt-20 pt-12 border-t border-gray-800">
           <div className="grid md:grid-cols-3 gap-8 mb-10">
             <div className="space-y-4 text-center md:text-left flex flex-col items-center md:items-start">
-              <Image src="/sunscore.logo.png" alt="SunScore" width={140} height={32} className="h-8 w-auto opacity-80" />
+              <Image src="/sunscore.logo.png" alt="SunScore" width={230} height={50} className="h-8 w-auto opacity-80" />
               <p className="text-sm text-gray-500 leading-relaxed">
                 Helping homeowners in {cityName} make informed solar decisions with official government data.
               </p>
@@ -1645,7 +1417,7 @@ export default function SolarCalculatorClient({
             </div>
 
             <div className="space-y-4 text-center md:text-left">
-              <h4 className="text-sm font-semibold text-white">Quick Links</h4>
+              <p className="text-sm font-semibold text-white">Quick Links</p>
               <nav className="flex flex-col items-center md:items-start gap-2">
                 <Link href="/" className="text-sm text-gray-400 hover:text-emerald-400 transition-colors">Home</Link>
                 <a href="#calculator" className="text-sm text-gray-400 hover:text-emerald-400 transition-colors">Calculator</a>
@@ -1655,7 +1427,7 @@ export default function SolarCalculatorClient({
             </div>
 
             <div className="space-y-4 text-center md:text-left">
-              <h4 className="text-sm font-semibold text-white">Legal</h4>
+              <p className="text-sm font-semibold text-white">Legal</p>
               <nav className="flex flex-col items-center md:items-start gap-2">
                 <Link href="/privacy-policy" className="text-sm text-gray-400 hover:text-emerald-400 transition-colors">Privacy Policy</Link>
                 <Link href="/terms-of-service" className="text-sm text-gray-400 hover:text-emerald-400 transition-colors">Terms of Service</Link>
@@ -1670,7 +1442,7 @@ export default function SolarCalculatorClient({
               <strong className="text-gray-400">Solar Estimates:</strong> Production estimates powered by the NREL PVWatts® Calculator. This tool provides estimates only and does not guarantee actual savings. Actual results may vary based on roof condition, shading, local utility rates, and other factors.
             </p>
             <p className="text-xs text-gray-500 leading-relaxed">
-              <strong className="text-gray-400">Tax Credit:</strong> The 30% federal solar Investment Tax Credit (ITC) is subject to eligibility requirements and may vary based on your tax situation. Consult a qualified tax professional for advice specific to your circumstances.
+              <strong className="text-gray-400">Pricing:</strong> System costs are based on {stateName} average installation prices and may vary based on installer, equipment choices, roof complexity, and local permitting requirements. Get quotes from local installers for accurate pricing.
             </p>
           </div>
 

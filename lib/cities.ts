@@ -19,7 +19,7 @@ export interface CityData {
 
 // Number of cities to pre-build at build time (sorted by population)
 // The rest will be built on-demand via ISR
-export const BUILD_TIME_CITY_LIMIT = 5000;
+export const BUILD_TIME_CITY_LIMIT = 50;
 
 // =============================================================================
 // SLUG UTILITIES

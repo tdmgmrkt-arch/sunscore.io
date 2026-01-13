@@ -4,7 +4,11 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const lat = searchParams.get('lat');
   const lon = searchParams.get('lon');
-  const API_KEY = "3AYmXdHE2zAP42iz0bEqUFlZouAlngJ5gAOaKXq1";
+  const API_KEY = process.env.NREL_API_KEY;
+
+  if (!API_KEY) {
+    return NextResponse.json({ error: 'NREL API key not configured' }, { status: 500 });
+  }
 
   if (!lat || !lon) return NextResponse.json({ error: 'Missing coords' }, { status: 400 });
 

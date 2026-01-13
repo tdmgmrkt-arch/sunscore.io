@@ -1,25 +1,24 @@
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import {
   getCityBySlug,
   getTopCitiesForBuild,
   generateCitySlug,
+  getCitiesData,
   BUILD_TIME_CITY_LIMIT,
+  CityData,
 } from "@/lib/cities";
-import SolarCalculatorClient from "./SolarCalculatorClient";
+import { fetchNRELData, calculatePeakSunHours } from "@/utils/nrel";
+import { getCityContentWithCache, GeneratedContent } from "@/utils/gemini";
+import SolarCalculatorClient, { PreloadedSolarData } from "./SolarCalculatorClient";
 
 // =============================================================================
 // ISR CONFIGURATION
 // =============================================================================
 
 // Enable ISR: Allow cities not in generateStaticParams to be built on-demand
-// When a user visits /calculator/small-town-wy (not in top 5,000), Next.js will:
-// 1. Generate the page on first request
-// 2. Cache it indefinitely (no revalidate = cache forever)
 export const dynamicParams = true;
-
-// DO NOT set revalidate - we want pages cached forever to minimize serverless costs
-// export const revalidate = false; // This is the default, no need to set
 
 // =============================================================================
 // DYNAMIC YEAR (Auto-updates for SEO)
@@ -31,14 +30,123 @@ const currentYear = new Date().getFullYear();
 // STATIC GENERATION (Build Time)
 // =============================================================================
 
-// Pre-build top 5,000 cities by population at build time
-// Remaining ~25,000 cities will be built on-demand via ISR
+// Pre-build top N cities by population at build time
+// Remaining cities will be built on-demand via ISR
 export async function generateStaticParams() {
   const cities = getTopCitiesForBuild(BUILD_TIME_CITY_LIMIT);
 
   return cities.map((city) => ({
     city: generateCitySlug(city.city_ascii, city.state_id),
   }));
+}
+
+// =============================================================================
+// SERVER-SIDE DATA FETCHING
+// =============================================================================
+
+interface PageData {
+  cityData: CityData;
+  solarData: PreloadedSolarData | null;
+  lifetimeSavings: number;
+  peakSunHours: number;
+  content: GeneratedContent;
+  nearbyCities: CityData[];
+  defaultBill: number; // Dynamic bill from NREL/climate data
+}
+
+async function getPageData(slug: string): Promise<PageData | null> {
+  const cityData = getCityBySlug(slug);
+
+  if (!cityData) {
+    return null;
+  }
+
+  // Fetch NREL solar data server-side
+  let solarData: PreloadedSolarData | null = null;
+  let lifetimeSavings = 0;
+  let peakSunHours = 5.0;
+
+  // Default bill based on state + climate + variance
+  let defaultBill = 150;
+
+  try {
+    const nrelResponse = await fetchNRELData(cityData.lat, cityData.lng, cityData.state_id, slug);
+    solarData = {
+      outputs: {
+        ac_annual: nrelResponse.ac_annual,
+        solrad_annual: nrelResponse.solrad_annual,
+        ac_monthly: [], // Monthly data not returned by new API structure
+      },
+      station_distance_miles: nrelResponse.station_distance_miles,
+    };
+    lifetimeSavings = nrelResponse.estimates.twenty_five_year_savings;
+    peakSunHours = calculatePeakSunHours(nrelResponse.solrad_annual);
+    defaultBill = nrelResponse.estimates.default_bill;
+  } catch (error) {
+    console.error(`Failed to fetch NREL data for ${cityData.city}:`, error);
+    // Use fallback values - the client will try to fetch if server-side fails
+    lifetimeSavings = 40000; // Reasonable default
+    peakSunHours = 5.0;
+    defaultBill = 150;
+  }
+
+  // Generate AI content (with sun hours for climate-aware messaging)
+  const content = await getCityContentWithCache(cityData, lifetimeSavings, currentYear, peakSunHours);
+
+  // Get nearby cities (same state, sorted by population)
+  const nearbyCities = getNearbyCities(cityData, 6);
+
+  return {
+    cityData,
+    solarData,
+    lifetimeSavings,
+    peakSunHours,
+    content,
+    nearbyCities,
+    defaultBill,
+  };
+}
+
+// Helper: Calculate distance between two coordinates (Haversine formula)
+function getDistanceInMiles(lat1: number, lon1: number, lat2: number, lon2: number) {
+  const R = 3959; // Earth radius in miles
+  const dLat = (lat2 - lat1) * (Math.PI / 180);
+  const dLon = (lon2 - lon1) * (Math.PI / 180);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * (Math.PI / 180)) *
+    Math.cos(lat2 * (Math.PI / 180)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+/**
+ * Get the 6 physically closest cities in the same state
+ */
+function getNearbyCities(currentCity: CityData, limit: number): CityData[] {
+  const allCities = getCitiesData();
+
+  // 1. Filter by State (Performance optimization)
+  const stateCities = allCities.filter(
+    (c) => c.state_id === currentCity.state_id && c.city_ascii !== currentCity.city_ascii
+  );
+
+  // 2. Map cities to include their distance
+  const citiesWithDistance = stateCities.map((c) => {
+    const distance = getDistanceInMiles(
+      parseFloat(currentCity.lat),
+      parseFloat(currentCity.lng),
+      parseFloat(c.lat),
+      parseFloat(c.lng)
+    );
+    return { ...c, distance };
+  });
+
+  // 3. Sort by distance (ascending) and slice
+  return citiesWithDistance
+    .sort((a, b) => a.distance - b.distance)
+    .slice(0, limit);
 }
 
 // =============================================================================
@@ -51,42 +159,43 @@ interface PageProps {
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { city: slug } = await params;
-  const cityData = getCityBySlug(slug);
+  const pageData = await getPageData(slug);
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://sunscore.io';
 
-  if (!cityData) {
+  if (!pageData) {
     return {
       title: "City Not Found | SunScore",
     };
   }
 
-  const title = `Solar Calculator for ${cityData.city}, ${cityData.state_id} | ${currentYear} Cost & Savings`;
-  const description = `See exactly how much you can save with solar in ${cityData.city}, ${cityData.state_name}. Get your personalized estimate based on ${currentYear} electric rates, 30% Federal Tax Credit, and official NREL data. Free instant results.`;
+  const { cityData, content } = pageData;
 
   return {
-    title,
-    description,
+    title: content.title,
+    description: content.meta_description,
     keywords: [
-      `solar calculator ${cityData.city} ${currentYear}`,
-      `${cityData.city} solar savings`,
-      `solar panels ${cityData.city} ${cityData.state_id}`,
+      `solar panels ${cityData.city} ${currentYear}`,
+      `${cityData.city} solar calculator`,
+      `solar savings ${cityData.city} ${cityData.state_id}`,
       `${cityData.state_name} solar incentives ${currentYear}`,
-      "federal solar tax credit",
+      "solar energy savings",
       "NREL solar calculator",
       `solar cost ${cityData.city}`,
     ],
     openGraph: {
-      title: `Solar Calculator for ${cityData.city}, ${cityData.state_id} | ${currentYear} Cost & Savings`,
-      description: `See how much you can save with solar in ${cityData.city}. Based on ${currentYear} rates with 30% Federal Tax Credit.`,
+      title: content.title,
+      description: content.meta_description,
       type: "website",
       locale: "en_US",
+      url: `${baseUrl}/calculator/${slug}`,
     },
     twitter: {
       card: "summary_large_image",
-      title: `Solar Calculator for ${cityData.city}, ${cityData.state_id} | ${currentYear}`,
-      description: `Calculate your ${currentYear} solar savings in ${cityData.city}. Official NREL data.`,
+      title: content.title,
+      description: content.meta_description,
     },
     alternates: {
-      canonical: `/calculator/${slug}`,
+      canonical: `${baseUrl}/calculator/${slug}`,
     },
   };
 }
@@ -97,14 +206,13 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function CityCalculatorPage({ params }: PageProps) {
   const { city: slug } = await params;
+  const pageData = await getPageData(slug);
 
-  // getCityBySlug searches ALL cities in the CSV, not just top 5,000
-  // This enables ISR for any valid city, even if not pre-built
-  const cityData = getCityBySlug(slug);
-
-  if (!cityData) {
+  if (!pageData) {
     notFound();
   }
+
+  const { cityData, solarData, lifetimeSavings, peakSunHours, content, nearbyCities, defaultBill } = pageData;
 
   // Prepare initial data for the calculator
   const initialData = {
@@ -116,12 +224,12 @@ export default async function CityCalculatorPage({ params }: PageProps) {
     stateId: cityData.state_id,
   };
 
-  // JSON-LD Schema for Local Business/Service
+  // JSON-LD Schema for SEO
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "WebPage",
-    name: `Solar Calculator for ${cityData.city}, ${cityData.state_name} | ${currentYear}`,
-    description: `Calculate solar panel savings in ${cityData.city}, ${cityData.state_name} using official NREL government data. Updated for ${currentYear}.`,
+    name: content.title,
+    description: content.meta_description,
     dateModified: new Date().toISOString(),
     mainEntity: {
       "@type": "SoftwareApplication",
@@ -144,12 +252,108 @@ export default async function CityCalculatorPage({ params }: PageProps) {
     },
   };
 
+  // ==========================================================================
+  // NAMED SLOTS - Server-rendered content injected into client component
+  // ==========================================================================
+
+  // SLOT 1: Intro Card (Glassmorphism Style) - Renders between Score & Chart
+  const IntroCard = (
+    <div className="bg-emerald-950/20 border border-emerald-900/30 rounded-xl p-6">
+      <h3 className="text-lg font-semibold text-white mb-2 flex items-center gap-2">
+        <span className="text-emerald-400">⚡</span>
+        Why Solar in {cityData.city}?
+      </h3>
+      <div
+        className="prose prose-invert prose-sm prose-p:text-gray-300 prose-p:m-0 prose-strong:text-emerald-400"
+        dangerouslySetInnerHTML={{ __html: content.intro_content }}
+      />
+    </div>
+  );
+
+  // SLOT 2: Detailed Analysis (Dashboard-matched styling) - Renders above FAQ
+  const DetailedSection = (
+    <section className="max-w-4xl mx-auto">
+      {/* Section Header - Matching dashboard style */}
+      <div className="text-center mb-8">
+        <h2 className="text-2xl md:text-3xl font-bold text-white">
+          Financial Deep Dive
+        </h2>
+        <p className="text-gray-400 mt-2 text-sm">
+          Understanding your solar investment in {cityData.city}
+        </p>
+      </div>
+
+      {/* Content Card - Dashboard gradient style */}
+      <div
+        className="p-6 md:p-8 bg-gradient-to-br from-gray-900/90 via-slate-950/95 to-gray-900/90 border border-cyan-500/20 rounded-2xl backdrop-blur-sm relative overflow-hidden"
+        style={{
+          boxShadow: '0 0 30px rgba(6, 182, 212, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.05)'
+        }}
+      >
+        {/* Subtle glow effect */}
+        <div className="absolute inset-0 bg-gradient-to-t from-cyan-500/5 via-transparent to-transparent pointer-events-none" />
+
+        {/* Formatted content */}
+        <div
+          className="relative z-10 space-y-6
+            [&>h3]:text-lg [&>h3]:md:text-xl [&>h3]:font-bold [&>h3]:text-white [&>h3]:mb-3 [&>h3]:flex [&>h3]:items-center [&>h3]:gap-2
+            [&>h3]:before:content-['💡'] [&>h3]:before:text-base
+            [&>p]:text-gray-300 [&>p]:leading-relaxed [&>p]:text-sm [&>p]:md:text-base
+            [&_strong]:text-emerald-400 [&_strong]:font-semibold"
+          dangerouslySetInnerHTML={{ __html: content.detailed_content }}
+        />
+      </div>
+    </section>
+  );
+
+  // SLOT 3: Nearby Cities (Footer navigation) - Renders below FAQ
+  const NearbyCitiesSection = (
+    <section className="mt-16 space-y-6">
+      <div className="text-center space-y-4">
+        <h2 className="text-2xl md:text-3xl font-bold text-center">
+          Solar Calculators for Cities Near {cityData.city}
+        </h2>
+        <p className="text-gray-400 max-w-2xl mx-auto">
+          Compare solar savings across {cityData.state_name} with our city-specific calculators.
+        </p>
+      </div>
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-8">
+        {nearbyCities.map((city) => {
+          const citySlug = generateCitySlug(city.city_ascii, city.state_id);
+          return (
+            <Link
+              key={citySlug}
+              href={`/calculator/${citySlug}`}
+              className="p-4 bg-gradient-to-br from-gray-900/90 via-slate-950/95 to-gray-900/90 border border-gray-800/50 rounded-xl hover:border-emerald-500/50 transition-all duration-300 text-center group"
+            >
+              <span className="text-gray-300 text-sm font-medium group-hover:text-emerald-400 transition-colors">
+                {city.city}
+              </span>
+            </Link>
+          );
+        })}
+      </div>
+      <div className="text-center mt-8">
+        <Link
+          href="/"
+          className="inline-flex items-center gap-2 text-emerald-400 hover:text-emerald-300 text-sm font-medium transition-colors"
+        >
+          <span>View all cities</span>
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+        </Link>
+      </div>
+    </section>
+  );
+
   return (
     <>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
+
       <SolarCalculatorClient
         initialLat={initialData.lat}
         initialLng={initialData.lng}
@@ -158,6 +362,12 @@ export default async function CityCalculatorPage({ params }: PageProps) {
         stateName={initialData.stateName}
         stateId={initialData.stateId}
         currentYear={currentYear}
+        preloadedSolarData={solarData ?? undefined}
+        initialMonthlyBill={defaultBill}
+        // Named slots
+        introSlot={IntroCard}
+        detailedSlot={DetailedSection}
+        nearbyCitiesSlot={NearbyCitiesSection}
       />
     </>
   );

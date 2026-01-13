@@ -3,8 +3,9 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
-import Script from "next/script";
-import usePlacesAutocomplete, { getGeocode, getLatLng } from "use-places-autocomplete";
+import AddressAutocomplete from "@/components/AddressAutocomplete";
+import { getPricePerWatt } from "@/utils/solar-pricing";
+import { getElectricityRate } from "@/utils/electricity-rates";
 import {
   Sun,
   Zap,
@@ -25,11 +26,7 @@ import {
   Share2,
   Check,
   Database,
-  Loader2,
 } from "lucide-react";
-
-// Google Maps API Key
-const GOOGLE_MAPS_API_KEY = "AIzaSyAYEGZ7tuLPfo70otuylrtaSWd7yANpsUk";
 
 // =============================================================================
 // TYPES
@@ -42,17 +39,9 @@ interface SolarData {
   };
 }
 
-interface GeocodingResult {
-  lat: string;
-  lon: string;
-  display_name: string;
-}
-
 interface CalculationResults {
   annualProduction: number;
   systemCost: number;
-  federalITC: number;
-  netSystemCost: number;
   firstYearSavings: number;
   twentyFiveYearSavings: number;
   twentyFiveYearUtilityCost: number;
@@ -60,6 +49,7 @@ interface CalculationResults {
   paybackYears: number;
   monthlyPayment: number;
   co2Offset: number;
+  treesEquivalent: number;
   locationName: string;
   yearlyData: { year: number; utilityCost: number; solarCost: number }[];
   sunScore: number;
@@ -71,11 +61,8 @@ interface CalculationResults {
 // CONSTANTS
 // =============================================================================
 const SYSTEM_SIZE_WATTS = 6000;
-const COST_PER_WATT = 3.0;
-const FEDERAL_ITC_RATE = 0.3;
 const UTILITY_INFLATION_RATE = 0.04;
 const YEARS_ANALYSIS = 25;
-const NREL_API_KEY = "3AYmXdHE2zAP42iz0bEqUFlZouAlngJ5gAOaKXq1";
 
 // =============================================================================
 // UTILITY FUNCTIONS
@@ -744,91 +731,6 @@ function FAQItem({
   );
 }
 
-// Address Autocomplete Component
-function AddressAutocomplete({
-  onSelect,
-  onChange,
-  isGoogleLoaded,
-}: {
-  onSelect: (address: string) => void;
-  onChange: (address: string) => void;
-  isGoogleLoaded: boolean;
-}) {
-  const {
-    ready,
-    value,
-    suggestions: { status, data },
-    setValue,
-    clearSuggestions,
-  } = usePlacesAutocomplete({
-    requestOptions: {
-      componentRestrictions: { country: "us" },
-      types: ["address"],
-    },
-    debounce: 300,
-  });
-
-  const handleSelect = async (description: string) => {
-    setValue(description, false);
-    clearSuggestions();
-    onSelect(description);
-  };
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newValue = e.target.value;
-    setValue(newValue);
-    onChange(newValue);
-  };
-
-  return (
-    <div className="relative flex-1">
-      <div className="relative">
-        <input
-          type="text"
-          value={value}
-          onChange={handleChange}
-          disabled={!ready}
-          placeholder="Enter your full address (e.g., 123 Main St, Austin, TX)"
-          className="w-full px-4 py-3.5 bg-gray-800/80 border border-gray-700 rounded-xl text-base md:text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all pr-10"
-          autoComplete="off"
-        />
-        {!ready && isGoogleLoaded && (
-          <div className="absolute right-3 top-1/2 -translate-y-1/2">
-            <Loader2 className="w-5 h-5 text-gray-500 animate-spin" />
-          </div>
-        )}
-      </div>
-
-      {/* Suggestions Dropdown */}
-      {status === "OK" && data.length > 0 && (
-        <ul className="absolute z-50 w-full mt-1 bg-gray-800 border border-gray-700 rounded-xl shadow-xl overflow-hidden max-h-60 overflow-y-auto">
-          {data.map((suggestion) => {
-            const {
-              place_id,
-              structured_formatting: { main_text, secondary_text },
-            } = suggestion;
-
-            return (
-              <li
-                key={place_id}
-                onClick={() => handleSelect(suggestion.description)}
-                className="px-4 py-3 cursor-pointer hover:bg-gray-700/80 transition-colors border-b border-gray-700/50 last:border-b-0"
-              >
-                <div className="flex items-start gap-3">
-                  <MapPin className="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" />
-                  <div>
-                    <p className="text-white text-sm font-medium">{main_text}</p>
-                    <p className="text-gray-400 text-xs">{secondary_text}</p>
-                  </div>
-                </div>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-    </div>
-  );
-}
 
 // =============================================================================
 // MAIN COMPONENT
@@ -836,7 +738,9 @@ function AddressAutocomplete({
 export default function SolarCalculator() {
   // State
   const [address, setAddress] = useState("");
-  const [isGoogleLoaded, setIsGoogleLoaded] = useState(false);
+  const [selectedLat, setSelectedLat] = useState<number | null>(null);
+  const [selectedLng, setSelectedLng] = useState<number | null>(null);
+  const [selectedStateId, setSelectedStateId] = useState<string>("");
   const [monthlyBill, setMonthlyBill] = useState(150);
   const [billInputValue, setBillInputValue] = useState("150");
   const [isLoading, setIsLoading] = useState(false);
@@ -858,11 +762,10 @@ export default function SolarCalculator() {
 
   // Calculate results from solar data and monthly bill
   const calculateResults = useCallback(
-    (solarData: SolarData, currentMonthlyBill: number, locationName: string, zip: string): CalculationResults => {
+    (solarData: SolarData, currentMonthlyBill: number, locationName: string, zip: string, stateId: string): CalculationResults => {
       const annualProduction = solarData.outputs.ac_annual;
-      const systemCost = SYSTEM_SIZE_WATTS * COST_PER_WATT;
-      const federalITC = systemCost * FEDERAL_ITC_RATE;
-      const netSystemCost = systemCost - federalITC;
+      const pricePerWatt = getPricePerWatt(stateId);
+      const systemCost = SYSTEM_SIZE_WATTS * pricePerWatt;
 
       // Calculate sun hours from NREL data (solrad_annual is kWh/m2/day average)
       const sunHours = solarData.outputs.solrad_annual || 5.0;
@@ -895,28 +798,28 @@ export default function SolarCalculator() {
         yearlyData.push({
           year,
           utilityCost: cumulativeUtilityCost,
-          solarCost: netSystemCost,
+          solarCost: systemCost,
         });
       }
 
       const twentyFiveYearUtilityCost = cumulativeUtilityCost;
-      const twentyFiveYearSavings = twentyFiveYearUtilityCost - netSystemCost;
+      const twentyFiveYearSavings = twentyFiveYearUtilityCost - systemCost;
       const firstYearSavings = annualBill;
-      const paybackYears = netSystemCost / annualBill;
+      const paybackYears = systemCost / annualBill;
       const co2Offset = (annualProduction * 0.0007) * YEARS_ANALYSIS; // tons CO2
+      const treesEquivalent = Math.round(co2Offset * 16.5); // ~16.5 trees per ton of CO2
 
       return {
         annualProduction,
         systemCost,
-        federalITC,
-        netSystemCost,
         firstYearSavings,
         twentyFiveYearSavings,
         twentyFiveYearUtilityCost,
-        twentyFiveYearSolarCost: netSystemCost,
+        twentyFiveYearSolarCost: systemCost,
         paybackYears: Math.round(paybackYears * 10) / 10,
-        monthlyPayment: Math.round(netSystemCost / (YEARS_ANALYSIS * 12)),
+        monthlyPayment: Math.round(systemCost / (YEARS_ANALYSIS * 12)),
         co2Offset: Math.round(co2Offset),
+        treesEquivalent,
         locationName,
         yearlyData,
         sunScore,
@@ -929,16 +832,17 @@ export default function SolarCalculator() {
 
   // Recalculate when monthly bill changes (if we have cached solar data)
   useEffect(() => {
-    if (cachedSolarData.current && results && hasInteracted) {
+    if (cachedSolarData.current && results && hasInteracted && selectedStateId) {
       const newResults = calculateResults(
         cachedSolarData.current,
         debouncedMonthlyBill,
         results.locationName,
-        results.zipCode
+        results.zipCode,
+        selectedStateId
       );
       setResults(newResults);
     }
-  }, [debouncedMonthlyBill, calculateResults, hasInteracted]);
+  }, [debouncedMonthlyBill, calculateResults, hasInteracted, selectedStateId]);
 
   // Generate random neighbor count on mount
   useEffect(() => {
@@ -968,47 +872,21 @@ export default function SolarCalculator() {
       return;
     }
 
+    if (!selectedLat || !selectedLng) {
+      setError("Please select an address from the dropdown suggestions");
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
     setResults(null);
     setHasInteracted(true);
 
     try {
-      // Step 1: Geocoding with Nominatim
-      const geoResponse = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1`,
-        {
-          headers: {
-            "User-Agent": "SolarSavingsCalculator/1.0 (contact@example.com)",
-          },
-        }
+      // Call our NREL API route
+      const nrelResponse = await fetch(
+        `/api/solar?lat=${selectedLat}&lon=${selectedLng}`
       );
-
-      if (!geoResponse.ok) {
-        throw new Error("Unable to connect to geocoding service. Please try again.");
-      }
-
-      const geoData: GeocodingResult[] = await geoResponse.json();
-
-      if (!geoData || geoData.length === 0) {
-        throw new Error("Address not found. Please enter a more specific address (e.g., include city and state).");
-      }
-
-      const { lat, lon, display_name } = geoData[0];
-
-      // Step 2: NREL PVWatts API
-      const nrelUrl = new URL("https://developer.nrel.gov/api/pvwatts/v8.json");
-      nrelUrl.searchParams.append("api_key", NREL_API_KEY);
-      nrelUrl.searchParams.append("lat", lat);
-      nrelUrl.searchParams.append("lon", lon);
-      nrelUrl.searchParams.append("system_capacity", "6");
-      nrelUrl.searchParams.append("azimuth", "180");
-      nrelUrl.searchParams.append("tilt", "20");
-      nrelUrl.searchParams.append("array_type", "1");
-      nrelUrl.searchParams.append("module_type", "1");
-      nrelUrl.searchParams.append("losses", "14");
-
-      const nrelResponse = await fetch(nrelUrl.toString());
 
       if (!nrelResponse.ok) {
         throw new Error("Unable to fetch solar data. Please try again later.");
@@ -1023,12 +901,12 @@ export default function SolarCalculator() {
       // Cache the solar data for recalculations
       cachedSolarData.current = solarData;
 
-      // Extract zip code from address or display_name
-      const zipMatch = display_name.match(/\b\d{5}(?:-\d{4})?\b/) || address.match(/\b\d{5}(?:-\d{4})?\b/);
+      // Extract zip code from address
+      const zipMatch = address.match(/\b\d{5}(?:-\d{4})?\b/);
       const zipCode = zipMatch ? zipMatch[0] : "";
 
-      // Calculate results
-      const calculatedResults = calculateResults(solarData, monthlyBill, display_name, zipCode);
+      // Calculate results using state-specific rates
+      const calculatedResults = calculateResults(solarData, monthlyBill, address, zipCode, selectedStateId);
       setResults(calculatedResults);
 
       // Scroll to results
@@ -1097,9 +975,9 @@ export default function SolarCalculator() {
   // FAQ Data
   const faqs = [
     {
-      question: "How does the 30% Federal Tax Credit work?",
+      question: "How long does it take for solar to pay for itself?",
       answer:
-        "The Investment Tax Credit (ITC) allows you to deduct 30% of your total solar installation cost directly from your federal taxes owed. For example, an $18,000 system qualifies for a $5,400 tax credit. This isn't a deduction—it's a dollar-for-dollar reduction in your tax bill. The credit is available through 2032 under the Inflation Reduction Act, then steps down to 26% in 2033 and 22% in 2034.",
+        "The payback period depends on your electricity costs, system size, and local sun exposure. Most homeowners see their system pay for itself in 6-10 years through electricity savings. After that point, you're essentially generating free electricity for the remaining 15-20+ years of your system's life. Our calculator uses your actual utility costs and NREL solar data to estimate your specific payback timeline.",
     },
     {
       question: "Is NREL data accurate?",
@@ -1131,7 +1009,7 @@ export default function SolarCalculator() {
       priceCurrency: "USD",
     },
     description:
-      "Calculate your solar savings with official NREL government data. See your 30% Federal Tax Credit and 25-year savings estimate instantly.",
+      "Calculate your solar savings with official NREL government data. Get your personalized 25-year savings estimate instantly.",
     aggregateRating: {
       "@type": "AggregateRating",
       ratingValue: "4.9",
@@ -1141,7 +1019,7 @@ export default function SolarCalculator() {
     },
     featureList: [
       "Official NREL Solar Data",
-      "Federal Tax Credit Calculator",
+      "State-Specific Pricing",
       "25-Year Savings Projection",
       "Interactive Cost Comparison Chart",
     ],
@@ -1153,13 +1031,6 @@ export default function SolarCalculator() {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-      />
-
-      {/* Google Maps Script - Load early for Places autocomplete */}
-      <Script
-        src={`https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places`}
-        strategy="afterInteractive"
-        onLoad={() => setIsGoogleLoaded(true)}
       />
 
       <main className="min-h-screen bg-gradient-to-b from-gray-950 via-gray-900 to-gray-950 text-white">
@@ -1260,13 +1131,12 @@ export default function SolarCalculator() {
               </h1>
 
               <p className="text-base md:text-xl text-gray-400 max-w-2xl mx-auto leading-relaxed">
-                See exactly how much you&apos;ll save with solar. Official government data.
+                See how much you could save with solar. Official government data.
                 <br className="hidden sm:block" />
-                Includes your{" "}
                 <span className="text-emerald-400 font-semibold">
-                  30% Federal Tax Credit
+                  25-year savings estimate
                 </span>
-                .
+                {" "}based on your location.
               </p>
 
               {/* Trust Badges */}
@@ -1278,7 +1148,7 @@ export default function SolarCalculator() {
               >
                 {[
                   { icon: Shield, text: "NREL Verified Data" },
-                  { icon: Award, text: "ITC Eligible" },
+                  { icon: Award, text: "25-Year Savings" },
                   { icon: Leaf, text: "Clean Energy" },
                   { icon: Clock, text: "Instant Results" },
                 ].map(({ icon: Icon, text }) => (
@@ -1326,23 +1196,28 @@ export default function SolarCalculator() {
                   Your Address
                 </label>
                 <div className="flex flex-col sm:flex-row gap-3">
-                  {isGoogleLoaded ? (
-                    <AddressAutocomplete
-                      onSelect={(addr) => setAddress(addr)}
-                      onChange={(addr) => setAddress(addr)}
-                      isGoogleLoaded={isGoogleLoaded}
-                    />
-                  ) : (
-                    <input
-                      id="address"
-                      type="text"
-                      value={address}
-                      onChange={(e) => setAddress(e.target.value)}
-                      placeholder="Enter your full address (e.g., 123 Main St, Austin, TX)"
-                      className="flex-1 px-4 py-3.5 bg-gray-800/80 border border-gray-700 rounded-xl text-base md:text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
-                      autoComplete="street-address"
-                    />
-                  )}
+                  <AddressAutocomplete
+                    onSelect={(addr, details) => {
+                      setAddress(addr);
+                      setSelectedLat(details.lat);
+                      setSelectedLng(details.lng);
+                      setSelectedStateId(details.stateId);
+                      // Clear error when address is successfully selected
+                      if (error) setError(null);
+                    }}
+                    onChange={(typedValue) => {
+                      // Track typed value but clear lat/lng since user is typing new address
+                      setAddress(typedValue);
+                      setSelectedLat(null);
+                      setSelectedLng(null);
+                      setSelectedStateId("");
+                      // Clear any previous error when user starts typing
+                      if (error) setError(null);
+                    }}
+                    onError={(errorMessage) => {
+                      setError(errorMessage);
+                    }}
+                  />
                   <button
                     type="submit"
                     disabled={isLoading}
@@ -1566,27 +1441,26 @@ export default function SolarCalculator() {
                             </div>
                           </div>
 
-                          {/* Federal Tax Credit - Centered to match Savings card (Clickable) */}
+                          {/* Environmental Impact Card */}
                           <div
-                            onClick={handleGetQuote}
-                            className="p-4 rounded-2xl border border-amber-500/30 bg-gradient-to-br from-amber-950/30 via-slate-900/50 to-amber-950/20 relative overflow-hidden cursor-pointer transition-all duration-300 hover:border-amber-500/50 hover:scale-[1.02]"
-                            style={{ boxShadow: 'inset 0 1px 0 rgba(251, 191, 36, 0.1), 0 0 15px rgba(251, 191, 36, 0.05)' }}
+                            className="p-4 rounded-2xl border border-green-500/30 bg-gradient-to-br from-green-950/30 via-slate-900/50 to-green-950/20 relative overflow-hidden transition-all duration-300 hover:border-green-500/50 hover:scale-[1.02]"
+                            style={{ boxShadow: 'inset 0 1px 0 rgba(34, 197, 94, 0.1), 0 0 15px rgba(34, 197, 94, 0.05)' }}
                           >
                             <div className="relative flex flex-col items-center text-center">
                               <div className="flex items-center gap-2 mb-1">
-                                <ShieldCheck className="w-3.5 h-3.5 text-amber-400/70" />
+                                <Leaf className="w-3.5 h-3.5 text-green-400/70" />
                                 <p className="text-[10px] text-white/60 uppercase tracking-[0.15em] font-medium">
-                                  Federal Tax Credit
+                                  Environmental Impact
                                 </p>
                               </div>
                               <p
                                 className="text-2xl font-bold text-white"
-                                style={{ textShadow: '0 0 20px rgba(251, 191, 36, 0.4)' }}
+                                style={{ textShadow: '0 0 20px rgba(34, 197, 94, 0.4)' }}
                               >
-                                {formatCurrency(results.federalITC)}
+                                {results.co2Offset} tons
                               </p>
-                              <p className="text-[10px] text-amber-400/60 mt-1">
-                                30% ITC through 2032
+                              <p className="text-[10px] text-green-400/60 mt-1">
+                                CO₂ offset over 25 years
                               </p>
                             </div>
                           </div>
@@ -1627,23 +1501,23 @@ export default function SolarCalculator() {
                         iconColor="text-emerald-400"
                       />
                       <StatCard
-                        icon={DollarSign}
-                        label="After Tax Credit"
-                        value={formatCurrency(results.netSystemCost)}
+                        icon={TrendingUp}
+                        label="Payback Period"
+                        value={`${results.paybackYears} years`}
                         highlight
                         iconColor="text-emerald-400"
                       />
                       <StatCard
-                        icon={TrendingUp}
-                        label="Payback Period"
-                        value={`${results.paybackYears} years`}
+                        icon={Zap}
+                        label="First Year Savings"
+                        value={formatCurrency(results.firstYearSavings)}
                         iconColor="text-emerald-400"
                       />
                       <StatCard
-                        icon={Zap}
-                        label="Avg. Monthly Savings"
-                        value={formatCurrency(Math.round(results.twentyFiveYearSavings / 300))}
-                        iconColor="text-emerald-400"
+                        icon={Leaf}
+                        label="Trees Equivalent"
+                        value={`${formatNumber(results.treesEquivalent)} trees`}
+                        iconColor="text-green-400"
                       />
                     </motion.div>
 
@@ -1800,25 +1674,25 @@ export default function SolarCalculator() {
                 initial={{ opacity: 0, x: 20 }}
                 whileInView={{ opacity: 1, x: 0 }}
                 viewport={{ once: true }}
-                className="p-6 bg-gradient-to-br from-yellow-500/10 to-amber-500/5 hover:from-yellow-500/15 hover:to-amber-500/10 border border-yellow-500/30 rounded-xl transition-colors duration-300"
+                className="p-6 bg-gradient-to-br from-green-500/10 to-emerald-500/5 hover:from-green-500/15 hover:to-emerald-500/10 border border-green-500/30 rounded-xl transition-colors duration-300"
               >
                 <div className="flex items-center gap-3 mb-4">
-                  <div className="p-2 bg-yellow-500/20 rounded-lg">
-                    <Award className="w-6 h-6 text-yellow-400" />
+                  <div className="p-2 bg-green-500/20 rounded-lg">
+                    <DollarSign className="w-6 h-6 text-green-400" />
                   </div>
-                  <h3 className="text-lg font-semibold text-white">Federal Tax Credit</h3>
+                  <h3 className="text-lg font-semibold text-white">State-Specific Pricing</h3>
                 </div>
                 <p className="text-sm text-gray-400 leading-relaxed mb-4">
-                  The 30% Investment Tax Credit (ITC) is codified in the Inflation Reduction Act of 2022. This is real legislation that provides substantial savings for homeowners going solar.
+                  Our calculator uses accurate solar installation costs based on your state. Prices vary significantly by region due to labor costs, permitting, and market conditions.
                 </p>
                 <ul className="space-y-2">
                   {[
-                    "30% credit through 2032",
-                    "26% in 2033, 22% in 2034",
-                    "Dollar-for-dollar tax reduction",
+                    "Updated 2025 pricing data",
+                    "Accounts for regional variations",
+                    "Based on industry averages",
                   ].map((item) => (
                     <li key={item} className="flex items-center gap-2 text-sm text-gray-300">
-                      <CheckCircle2 className="w-4 h-4 text-yellow-500 flex-shrink-0" />
+                      <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" />
                       {item}
                     </li>
                   ))}
@@ -1836,7 +1710,7 @@ export default function SolarCalculator() {
               Frequently Asked Questions
             </h2>
             <p className="text-gray-400 text-center max-w-2xl mx-auto">
-              Everything you need to know about solar savings, tax credits, and
+              Everything you need to know about solar savings, payback periods, and
               making the switch to clean energy.
             </p>
             <div className="space-y-3 mt-8">
@@ -1922,7 +1796,7 @@ export default function SolarCalculator() {
                 <strong className="text-gray-400">Solar Estimates:</strong> Production estimates powered by the NREL PVWatts® Calculator. This tool provides estimates only and does not guarantee actual savings. Actual results may vary based on roof condition, shading, local utility rates, and other factors.
               </p>
               <p className="text-xs text-gray-500 leading-relaxed">
-                <strong className="text-gray-400">Tax Credit:</strong> The 30% federal solar Investment Tax Credit (ITC) is subject to eligibility requirements and may vary based on your tax situation. Consult a qualified tax professional for advice specific to your circumstances.
+                <strong className="text-gray-400">Pricing:</strong> System costs are based on state-average installation prices and may vary based on installer, equipment choices, roof complexity, and local permitting requirements. Get quotes from local installers for accurate pricing.
               </p>
             </div>
 
