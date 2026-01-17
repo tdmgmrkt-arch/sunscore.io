@@ -1,9 +1,5 @@
 import { MetadataRoute } from "next";
-import {
-  getTopCitiesForBuild,
-  generateCitySlug,
-  BUILD_TIME_CITY_LIMIT,
-} from "@/lib/cities";
+import { getTopCitiesForBuild, generateCitySlug } from "@/lib/cities";
 
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://sunscore.io";
 
@@ -11,12 +7,13 @@ const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://sunscore.io";
 // SITEMAP CONFIGURATION
 // =============================================================================
 
-// Include the same top 5,000 cities that are pre-built at build time
-// This ensures Google prioritizes indexing these high-traffic pages first
-// Cities built via ISR (on-demand) are NOT included in sitemap to keep it manageable
+// Sitemap includes top 1,000 cities by population for SEO reach
+// Build limit (50) stays small for fast deploys - remaining cities built via ISR
+// This balances national coverage with new-domain safety (avoids spam filter triggers)
+const SITEMAP_CITY_LIMIT = 1000;
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const cities = getTopCitiesForBuild(BUILD_TIME_CITY_LIMIT);
+  const cities = getTopCitiesForBuild(SITEMAP_CITY_LIMIT);
 
   // Static pages (highest priority)
   const staticPages: MetadataRoute.Sitemap = [
@@ -48,8 +45,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
 
   // City pages - sorted by population (higher priority for larger cities)
   // Top 100 cities: priority 0.9
-  // Cities 101-1000: priority 0.8
-  // Cities 1001-5000: priority 0.7
+  // Cities 101-500: priority 0.8
+  // Cities 501-1000: priority 0.7
   const cityPages: MetadataRoute.Sitemap = cities.map((city, index) => {
     const slug = generateCitySlug(city.city_ascii, city.state_id);
 
@@ -57,7 +54,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     let priority: number;
     if (index < 100) {
       priority = 0.9;
-    } else if (index < 1000) {
+    } else if (index < 500) {
       priority = 0.8;
     } else {
       priority = 0.7;
