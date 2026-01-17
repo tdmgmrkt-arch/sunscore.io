@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
@@ -736,6 +737,8 @@ function FAQItem({
 // MAIN COMPONENT
 // =============================================================================
 export default function SolarCalculator() {
+  const router = useRouter();
+
   // State
   const [address, setAddress] = useState("");
   const [selectedLat, setSelectedLat] = useState<number | null>(null);
@@ -950,26 +953,21 @@ export default function SolarCalculator() {
     }
   };
 
-  // Handle Get Quote CTA - constructs URL with user data
+  // Handle Get Quote CTA - Redirects to Bridge Page
   const handleGetQuote = () => {
     if (!results) return;
 
-    const quoteUrl = `https://partner-link.com?zip=${encodeURIComponent(results.zipCode)}&bill=${monthlyBill}&score=${results.sunScore}&savings=${Math.round(results.twentyFiveYearSavings)}`;
+    // Construct URL params with the data we have
+    const queryParams = new URLSearchParams({
+      zip: results.zipCode,
+      bill: monthlyBill.toString(),
+      score: results.sunScore.toString(),
+      address: address, // On home page, we pass the full address string
+      state: selectedStateId
+    }).toString();
 
-    // Log URL for partner integration (swap this link later)
-    console.log("📊 Quote CTA clicked - Partner URL:", quoteUrl);
-    console.log("📍 User Data:", {
-      zipCode: results.zipCode,
-      monthlyBill,
-      sunScore: results.sunScore,
-      estimatedSavings: results.twentyFiveYearSavings,
-      location: results.locationName,
-    });
-
-    // For now, show toast. In production, redirect to partner URL:
-    // window.open(quoteUrl, '_blank');
-    setToastMessage("Quote request logged! Check console.");
-    setShowToast(true);
+    // Navigate to the Bridge Page
+    router.push(`/quote?${queryParams}`);
   };
 
   // FAQ Data
@@ -992,7 +990,7 @@ export default function SolarCalculator() {
     {
       question: "What are my financing options?",
       answer:
-        "You have several options: (1) Cash Purchase — highest ROI, own the system outright immediately. (2) Solar Loans — $0 down available, you own the system from day one and get the full tax credit. (3) Lease — lower savings but no upfront cost, the leasing company owns the system. (4) PPA (Power Purchase Agreement) — pay for the power produced at a fixed rate, often lower than utility rates.",
+        "You have several options: (1) Cash Purchase — highest ROI, own the system outright immediately. (2) Solar Loans — $0 down available, allowing you to own the system from day one and build equity instead of renting power.",
     },
   ];
 
@@ -1000,7 +998,7 @@ export default function SolarCalculator() {
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
-    name: "2025 Solar Savings Calculator",
+    name: "2026 Solar Savings Calculator",
     applicationCategory: "FinanceApplication",
     operatingSystem: "Web Browser",
     offers: {
@@ -1118,7 +1116,7 @@ export default function SolarCalculator() {
                 className="inline-flex items-center gap-2 px-3 md:px-4 py-1.5 md:py-2 bg-emerald-500/10 border border-emerald-500/30 rounded-full text-emerald-400 text-xs md:text-sm font-medium"
               >
                 <Zap className="w-3.5 h-3.5 md:w-4 md:h-4" />
-                <span>2025 Updated • NREL Official Data</span>
+                <span>2026 Updated • NREL Official Data</span>
               </motion.div>
 
               {/* H1 */}
@@ -1147,7 +1145,7 @@ export default function SolarCalculator() {
                 className="flex flex-wrap justify-center gap-x-4 md:gap-x-6 gap-y-2 md:gap-y-3 pt-2 md:pt-4"
               >
                 {[
-                  { icon: Shield, text: "NREL Verified Data" },
+                  { icon: Shield, text: "Official NREL Data" },
                   { icon: Award, text: "25-Year Savings" },
                   { icon: Leaf, text: "Clean Energy" },
                   { icon: Clock, text: "Instant Results" },
@@ -1180,7 +1178,7 @@ export default function SolarCalculator() {
               </h2>
               <div className="flex items-center justify-center gap-2 text-xs text-gray-400">
                 <Shield className="w-3.5 h-3.5 text-emerald-500" />
-                <span>Powered by NREL PVWatts® Data</span>
+                <span>Estimates based on NREL PVWatts® Data</span>
               </div>
             </div>
 
@@ -1435,7 +1433,7 @@ export default function SolarCalculator() {
                                 onClick={handleGetQuote}
                                 className="mt-3 text-xs font-bold text-emerald-400 hover:text-emerald-300 flex items-center gap-1 transition-colors border-b border-emerald-500/30 hover:border-emerald-400 pb-0.5"
                               >
-                                Check Eligibility for this Amount
+                                Unlock Your 25-Year Savings Report
                                 <ArrowRight className="w-3 h-3" />
                               </button>
                             </div>
@@ -1551,7 +1549,7 @@ export default function SolarCalculator() {
                         onClick={handleGetQuote}
                         className="w-full py-5 px-6 bg-gradient-to-r from-yellow-500 via-amber-500 to-yellow-500 hover:from-yellow-400 hover:via-amber-400 hover:to-yellow-400 text-gray-900 font-bold text-lg rounded-2xl shadow-xl shadow-yellow-500/30 hover:shadow-yellow-500/40 flex items-center justify-center gap-3 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] group"
                       >
-                        <span>Get My Official Quote & Verify Incentives</span>
+                        <span>Get My Official Quote & Savings Analysis</span>
                         <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                       </button>
                       <p className="text-center text-xs text-gray-500 mt-3">
@@ -1597,7 +1595,7 @@ export default function SolarCalculator() {
                   {
                     step: "3",
                     title: "Savings Projection",
-                    description: "We compare your current utility costs (with 4% annual inflation) against owning solar to show your 25-year savings.",
+                    description: "We compare your current utility costs (based on historical utility rate trends) against owning solar to show your 25-year savings.",
                     icon: TrendingUp,
                     color: "cyan",
                   },
@@ -1652,7 +1650,7 @@ export default function SolarCalculator() {
                   <div className="p-2 bg-emerald-500/20 rounded-lg">
                     <Shield className="w-6 h-6 text-emerald-400" />
                   </div>
-                  <h3 className="text-lg font-semibold text-white">NREL PVWatts®</h3>
+                  <h3 className="text-lg font-semibold text-white">Official NREL Data</h3>
                 </div>
                 <p className="text-sm text-gray-400 leading-relaxed mb-4">
                   The National Renewable Energy Laboratory (NREL) is a U.S. Department of Energy national laboratory. Their PVWatts® Calculator is the industry-standard tool used by solar professionals nationwide.
@@ -1683,13 +1681,13 @@ export default function SolarCalculator() {
                   <h3 className="text-lg font-semibold text-white">State-Specific Pricing</h3>
                 </div>
                 <p className="text-sm text-gray-400 leading-relaxed mb-4">
-                  Our calculator uses accurate solar installation costs based on your state. Prices vary significantly by region due to labor costs, permitting, and market conditions.
+                State-Specific Pricing Our calculator estimates installation costs based on regional market averages for your state. Prices reflect local variances in equipment, labor rates, and installation complexity.
                 </p>
                 <ul className="space-y-2">
                   {[
-                    "Updated 2025 pricing data",
-                    "Accounts for regional variations",
-                    "Based on industry averages",
+                    "Updated 2026 pricing data",
+                    "Accounts for regional market trends",
+                    "Based on state-level industry averages",
                   ].map((item) => (
                     <li key={item} className="flex items-center gap-2 text-sm text-gray-300">
                       <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" />
@@ -1744,27 +1742,28 @@ export default function SolarCalculator() {
                 </p>
                 <div className="flex items-center gap-2 text-xs text-gray-500">
                   <Shield className="w-3 h-3 text-emerald-500" />
-                  <span>Powered by NREL PVWatts®</span>
+                  <span>Estimates based on NREL PVWatts®</span>
                 </div>
               </div>
 
               {/* Quick Links Column */}
               <div className="space-y-4">
-                <h4 className="text-sm font-semibold text-white">Quick Links</h4>
+                <p className="text-sm font-semibold text-white">Quick Links</p>
                 <nav className="flex flex-col gap-2">
                   {[
-                    { label: "Calculator", href: "#calculator" },
-                    { label: "How it Works", href: "#how-it-works" },
-                    { label: "Accuracy", href: "#accuracy" },
-                    { label: "FAQ", href: "#faq" },
+                    { label: "Calculator", href: "#calculator", isAnchor: true },
+                    { label: "How it Works", href: "#how-it-works", isAnchor: true },
+                    { label: "Accuracy", href: "#accuracy", isAnchor: true },
+                    { label: "FAQ", href: "#faq", isAnchor: true },
+                    { label: "Solar by State", href: "/locations", isAnchor: false },
                   ].map((link) => (
                     <a
                       key={link.href}
                       href={link.href}
-                      onClick={(e) => {
+                      onClick={link.isAnchor ? (e) => {
                         e.preventDefault();
                         document.getElementById(link.href.slice(1))?.scrollIntoView({ behavior: "smooth" });
-                      }}
+                      } : undefined}
                       className="text-sm text-gray-400 hover:text-emerald-400 transition-colors"
                     >
                       {link.label}
@@ -1775,7 +1774,7 @@ export default function SolarCalculator() {
 
               {/* Legal Column */}
               <div className="space-y-4">
-                <h4 className="text-sm font-semibold text-white">Legal</h4>
+                <p className="text-sm font-semibold text-white">Legal</p>
                 <nav className="flex flex-col gap-2">
                   <a href="/privacy-policy" className="text-sm text-gray-400 hover:text-emerald-400 transition-colors">
                     Privacy Policy
