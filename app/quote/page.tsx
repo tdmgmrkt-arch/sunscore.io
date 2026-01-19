@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { Shield, CheckCircle2, ArrowLeft, User, Phone, Mail, MapPin, CheckCircle, Home, DollarSign, Share2 } from "lucide-react";
 
-export default function QuotePage() {
+// Inner component that uses useSearchParams
+function QuoteContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -318,10 +319,10 @@ export default function QuotePage() {
                     </button>
                   </form>
 
-                  {/* Trust indicator */}
+                  {/* Trust indicator - Updated for compliance */}
                   <div className="flex items-center justify-center gap-2 mt-6 text-xs text-gray-500">
                     <Shield className="w-3.5 h-3.5 text-emerald-500" />
-                    <span>Your information is secure and never sold.</span>
+                    <span>Your information is secure and only shared with vetted installers.</span>
                   </div>
                 </>
               ) : (
@@ -400,26 +401,41 @@ export default function QuotePage() {
 
       {/* Footer */}
       <footer className="relative z-10 border-t border-gray-800/50 py-6">
-        <div className="max-w-5xl mx-auto px-4 flex flex-col md:flex-row items-center justify-between gap-4">
-          <p className="text-xs text-gray-600">
-            © {new Date().getFullYear()} SunScore. All rights reserved.
+        <div className="max-w-5xl mx-auto px-4 flex flex-col items-center gap-3">
+          {/* FTC Affiliate Disclosure */}
+          <p className="text-[10px] text-gray-600 text-center">
+            SunScore is an independent consumer service. We may earn a commission when you connect with our partners.
           </p>
-          <div className="flex items-center gap-6">
-            <Link
-              href="/privacy-policy"
-              className="text-xs text-gray-500 hover:text-emerald-400 transition-colors"
-            >
-              Privacy Policy
-            </Link>
-            <Link
-              href="/terms-of-service"
-              className="text-xs text-gray-500 hover:text-emerald-400 transition-colors"
-            >
-              Terms
-            </Link>
+          <div className="w-full flex flex-col md:flex-row items-center justify-between gap-4">
+            <p className="text-xs text-gray-600">
+              © {new Date().getFullYear()} SunScore. All rights reserved.
+            </p>
+            <div className="flex items-center gap-6">
+              <Link
+                href="/privacy-policy"
+                className="text-xs text-gray-500 hover:text-emerald-400 transition-colors"
+              >
+                Privacy Policy
+              </Link>
+              <Link
+                href="/terms-of-service"
+                className="text-xs text-gray-500 hover:text-emerald-400 transition-colors"
+              >
+                Terms
+              </Link>
+            </div>
           </div>
         </div>
       </footer>
     </main>
+  );
+}
+
+// Main export with Suspense boundary for useSearchParams
+export default function QuotePage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-gray-950 flex items-center justify-center text-white">Loading...</div>}>
+      <QuoteContent />
+    </Suspense>
   );
 }

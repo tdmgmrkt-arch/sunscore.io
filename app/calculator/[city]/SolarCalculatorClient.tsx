@@ -1514,6 +1514,11 @@ export default function SolarCalculatorClient({
             </p>
           </div>
 
+          {/* FTC Affiliate Disclosure */}
+          <p className="text-[10px] text-gray-600 text-center py-4 border-t border-gray-800/50">
+            SunScore is an independent consumer service. We may earn a commission when you connect with our partners.
+          </p>
+
           {/* Copyright Bar */}
           <div className="py-6 border-t border-gray-800/50 flex flex-col md:flex-row items-center justify-between gap-4">
             <p className="text-xs text-gray-600">
