@@ -14,6 +14,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  // metadataBase ensures OG images and relative links resolve correctly
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "https://sunscore.io"),
+
   title: "2026 Solar Calculator | Official NREL Data & Savings Estimates",
   description:
     "Calculate your solar savings with official NREL government data. See your estimated 25-year savings, ROI, and payback period based on your current electric bill. Free instant results.",
@@ -43,9 +46,8 @@ export const metadata: Metadata = {
     index: true,
     follow: true,
   },
-  alternates: {
-    canonical: "/",
-  },
+  // NOTE: Do NOT add alternates.canonical here - sub-pages define their own canonicals
+  // Adding canonical: "/" here would tell Google ALL pages are the homepage (de-indexing risk)
 };
 
 export default function RootLayout({

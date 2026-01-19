@@ -34,8 +34,11 @@ export default function AddressAutocomplete({
   const [isScriptLoaded, setIsScriptLoaded] = useState(false);
   const [isGeocoding, setIsGeocoding] = useState(false);
   const [isVerified, setIsVerified] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(-1); // Tracks keyboard selection
   const placesServiceRef = useRef<google.maps.places.PlacesService | null>(null);
   const attrContainerRef = useRef<HTMLDivElement | null>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<(HTMLLIElement | null)[]>([]);
 
   // Check if Google Maps is already loaded (e.g., from another component)
   useEffect(() => {
@@ -78,6 +81,28 @@ export default function AddressAutocomplete({
       init();
     }
   }, [isScriptLoaded, init]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
+        clearSuggestions();
+        setActiveIndex(-1);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [clearSuggestions]);
+
+  // Scroll active item into view when navigating with keyboard
+  useEffect(() => {
+    if (activeIndex >= 0 && listRef.current[activeIndex]) {
+      listRef.current[activeIndex]?.scrollIntoView({
+        block: "nearest",
+        behavior: "smooth",
+      });
+    }
+  }, [activeIndex]);
 
   // Handle selection using Place Details API (more reliable than Geocoding API)
   const handleSelect = async (description: string, placeId: string) => {
@@ -141,6 +166,28 @@ export default function AddressAutocomplete({
     );
   };
 
+  // Handle Keyboard Navigation
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (status !== "OK" || data.length === 0) return;
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault(); // Stop cursor from moving
+      setActiveIndex((prev) => (prev < data.length - 1 ? prev + 1 : prev));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActiveIndex((prev) => (prev > 0 ? prev - 1 : -1));
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      if (activeIndex >= 0) {
+        const selected = data[activeIndex];
+        handleSelect(selected.description, selected.place_id);
+      }
+    } else if (e.key === "Escape") {
+      clearSuggestions();
+      setActiveIndex(-1);
+    }
+  };
+
   return (
     <>
       {/* Load Google Maps Script */}
@@ -156,7 +203,7 @@ export default function AddressAutocomplete({
         }}
       />
 
-      <div className="relative flex-1">
+      <div ref={wrapperRef} className="relative flex-1">
         <div className="relative">
           <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
           <input
@@ -165,8 +212,10 @@ export default function AddressAutocomplete({
             onChange={(e) => {
               setValue(e.target.value);
               setIsVerified(false); // Reset verified state when user types
+              setActiveIndex(-1); // Reset keyboard selection when typing
               onChange?.(e.target.value);
             }}
+            onKeyDown={handleKeyDown}
             disabled={!ready || isGeocoding}
             placeholder={placeholder}
             className="w-full pl-10 pr-10 py-3.5 bg-gray-800/80 border border-gray-700 rounded-xl text-base md:text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
@@ -195,23 +244,30 @@ export default function AddressAutocomplete({
         {/* Suggestions dropdown */}
         {status === "OK" && data.length > 0 && (
           <ul className="absolute z-50 w-full mt-2 bg-gray-800 border border-gray-700 rounded-xl shadow-xl overflow-hidden max-h-60 overflow-y-auto">
-            {data.map((suggestion) => {
+            {data.map((suggestion, index) => {
               const {
                 place_id,
                 structured_formatting: { main_text, secondary_text },
               } = suggestion;
+              const isActive = index === activeIndex;
 
               return (
                 <li
                   key={place_id}
+                  ref={(el) => { listRef.current[index] = el; }}
                   onClick={() => handleSelect(suggestion.description, place_id)}
-                  className="px-4 py-3 cursor-pointer hover:bg-gray-700/50 transition-colors border-b border-gray-700/50 last:border-b-0"
+                  onMouseEnter={() => setActiveIndex(index)}
+                  className={`px-4 py-3 cursor-pointer transition-colors border-b border-gray-700/50 last:border-b-0 ${
+                    isActive ? "bg-gray-700" : "hover:bg-gray-700/50"
+                  }`}
                 >
                   <div className="flex items-start gap-3">
-                    <MapPin className="w-4 h-4 text-emerald-500 mt-0.5 flex-shrink-0" />
+                    <MapPin className={`w-4 h-4 mt-0.5 flex-shrink-0 ${
+                      isActive ? "text-emerald-400" : "text-emerald-500"
+                    }`} />
                     <div>
-                      <p className="text-white text-sm font-medium">{main_text}</p>
-                      <p className="text-gray-400 text-xs">{secondary_text}</p>
+                      <p className={`text-sm font-medium ${isActive ? "text-white" : "text-white"}`}>{main_text}</p>
+                      <p className={`text-xs ${isActive ? "text-gray-300" : "text-gray-400"}`}>{secondary_text}</p>
                     </div>
                   </div>
                 </li>
