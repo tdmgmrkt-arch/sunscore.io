@@ -1,11 +1,8 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Script from "next/script";
-import usePlacesAutocomplete from "use-places-autocomplete";
 import { MapPin, Loader2, CheckCircle2 } from "lucide-react";
-
-// Window already has google types from @types/google.maps
 
 interface PlaceDetails {
   lat: number;
@@ -16,10 +13,17 @@ interface PlaceDetails {
 
 interface AddressAutocompleteProps {
   onSelect: (address: string, details: PlaceDetails) => void;
-  onChange?: (value: string) => void; // Called on every keystroke
-  onError?: (message: string) => void; // Called when geocoding fails
+  onChange?: (value: string) => void;
+  onError?: (message: string) => void;
   placeholder?: string;
   defaultValue?: string;
+}
+
+interface Suggestion {
+  placeId: string;
+  mainText: string;
+  secondaryText: string;
+  description: string;
 }
 
 const GOOGLE_PLACES_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_PLACES_API_KEY || "";
@@ -32,67 +36,72 @@ export default function AddressAutocomplete({
   defaultValue = "",
 }: AddressAutocompleteProps) {
   const [isScriptLoaded, setIsScriptLoaded] = useState(false);
+  const [isReady, setIsReady] = useState(false);
   const [isGeocoding, setIsGeocoding] = useState(false);
   const [isVerified, setIsVerified] = useState(false);
-  const [activeIndex, setActiveIndex] = useState(-1); // Tracks keyboard selection
-  const placesServiceRef = useRef<google.maps.places.PlacesService | null>(null);
-  const attrContainerRef = useRef<HTMLDivElement | null>(null);
+  const [value, setValue] = useState(defaultValue);
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [activeIndex, setActiveIndex] = useState(-1);
+
   const wrapperRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<(HTMLLIElement | null)[]>([]);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const autocompleteServiceRef = useRef<google.maps.places.AutocompleteService | null>(null);
+  const placesServiceRef = useRef<google.maps.places.PlacesService | null>(null);
+  const sessionTokenRef = useRef<google.maps.places.AutocompleteSessionToken | null>(null);
+  const attrContainerRef = useRef<HTMLDivElement | null>(null);
 
   // Check if Google Maps is already loaded (e.g., from another component)
   useEffect(() => {
     if (typeof window !== "undefined" && window.google?.maps?.places) {
       setIsScriptLoaded(true);
+      initializeServices();
     }
   }, []);
 
-  // Initialize PlacesService when script loads
-  useEffect(() => {
-    if (isScriptLoaded && window.google?.maps?.places && !placesServiceRef.current) {
-      // Create a hidden div for PlacesService (required by the API)
+  // Initialize services when script loads
+  const initializeServices = useCallback(() => {
+    if (!window.google?.maps?.places) return;
+
+    // Create AutocompleteService for suggestions
+    if (!autocompleteServiceRef.current) {
+      autocompleteServiceRef.current = new window.google.maps.places.AutocompleteService();
+    }
+
+    // Create PlacesService for place details (requires a DOM element)
+    if (!placesServiceRef.current) {
       if (!attrContainerRef.current) {
         attrContainerRef.current = document.createElement("div");
       }
       placesServiceRef.current = new window.google.maps.places.PlacesService(attrContainerRef.current);
     }
-  }, [isScriptLoaded]);
 
-  const {
-    ready,
-    value,
-    suggestions: { status, data },
-    setValue,
-    clearSuggestions,
-    init,
-  } = usePlacesAutocomplete({
-    requestOptions: {
-      componentRestrictions: { country: "us" },
-      types: ["address"],
-    },
-    debounce: 300,
-    defaultValue,
-    initOnMount: false, // Don't init until script is loaded
-  });
+    // Create session token for billing optimization
+    if (!sessionTokenRef.current) {
+      sessionTokenRef.current = new window.google.maps.places.AutocompleteSessionToken();
+    }
 
-  // Initialize the autocomplete when script loads
+    setIsReady(true);
+  }, []);
+
+  // Initialize when script loads
   useEffect(() => {
     if (isScriptLoaded) {
-      init();
+      initializeServices();
     }
-  }, [isScriptLoaded, init]);
+  }, [isScriptLoaded, initializeServices]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
-        clearSuggestions();
+        setSuggestions([]);
         setActiveIndex(-1);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [clearSuggestions]);
+  }, []);
 
   // Scroll active item into view when navigating with keyboard
   useEffect(() => {
@@ -104,10 +113,62 @@ export default function AddressAutocomplete({
     }
   }, [activeIndex]);
 
-  // Handle selection using Place Details API (more reliable than Geocoding API)
-  const handleSelect = async (description: string, placeId: string) => {
-    setValue(description, false);
-    clearSuggestions();
+  // Fetch autocomplete suggestions
+  const fetchSuggestions = useCallback((input: string) => {
+    if (!input || input.length < 3 || !autocompleteServiceRef.current) {
+      setSuggestions([]);
+      return;
+    }
+
+    const request: google.maps.places.AutocompletionRequest = {
+      input,
+      componentRestrictions: { country: "us" },
+      types: ["address"],
+      sessionToken: sessionTokenRef.current ?? undefined,
+    };
+
+    autocompleteServiceRef.current.getPlacePredictions(
+      request,
+      (predictions, status) => {
+        if (status !== google.maps.places.PlacesServiceStatus.OK || !predictions) {
+          setSuggestions([]);
+          return;
+        }
+
+        const formattedSuggestions: Suggestion[] = predictions.map((prediction) => ({
+          placeId: prediction.place_id,
+          mainText: prediction.structured_formatting.main_text,
+          secondaryText: prediction.structured_formatting.secondary_text,
+          description: prediction.description,
+        }));
+
+        setSuggestions(formattedSuggestions);
+      }
+    );
+  }, []);
+
+  // Handle input change with debounce
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = e.target.value;
+    setValue(newValue);
+    setIsVerified(false);
+    setActiveIndex(-1);
+    onChange?.(newValue);
+
+    // Debounce the API call
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
+
+    debounceRef.current = setTimeout(() => {
+      fetchSuggestions(newValue);
+    }, 300);
+  };
+
+  // Handle selection - fetch place details
+  const handleSelect = (suggestion: Suggestion) => {
+    setValue(suggestion.description);
+    setSuggestions([]);
     setIsGeocoding(true);
     setIsVerified(false);
 
@@ -118,14 +179,17 @@ export default function AddressAutocomplete({
       return;
     }
 
-    // Use Place Details API to get geometry and address components
     placesServiceRef.current.getDetails(
       {
-        placeId: placeId,
+        placeId: suggestion.placeId,
         fields: ["geometry", "address_components", "formatted_address"],
+        sessionToken: sessionTokenRef.current ?? undefined,
       },
       (place, status) => {
         setIsGeocoding(false);
+
+        // Create a new session token for the next search
+        sessionTokenRef.current = new window.google.maps.places.AutocompleteSessionToken();
 
         if (status !== google.maps.places.PlacesServiceStatus.OK || !place) {
           console.error("Place details error:", status);
@@ -156,52 +220,55 @@ export default function AddressAutocomplete({
         }
 
         setIsVerified(true);
-        onSelect(description, {
+        onSelect(suggestion.description, {
           lat,
           lng,
-          formattedAddress: place.formatted_address || description,
+          formattedAddress: place.formatted_address || suggestion.description,
           stateId,
         });
       }
     );
   };
 
-  // Handle Keyboard Navigation
+  // Handle keyboard navigation
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (status !== "OK" || data.length === 0) return;
+    if (suggestions.length === 0) return;
 
     if (e.key === "ArrowDown") {
-      e.preventDefault(); // Stop cursor from moving
-      setActiveIndex((prev) => (prev < data.length - 1 ? prev + 1 : prev));
+      e.preventDefault();
+      setActiveIndex((prev) => (prev < suggestions.length - 1 ? prev + 1 : prev));
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       setActiveIndex((prev) => (prev > 0 ? prev - 1 : -1));
     } else if (e.key === "Enter") {
       e.preventDefault();
       if (activeIndex >= 0) {
-        const selected = data[activeIndex];
-        handleSelect(selected.description, selected.place_id);
+        handleSelect(suggestions[activeIndex]);
       }
     } else if (e.key === "Escape") {
-      clearSuggestions();
+      setSuggestions([]);
       setActiveIndex(-1);
     }
   };
 
+  // Check if script needs to be loaded (not already present)
+  const shouldLoadScript = !isScriptLoaded && typeof window !== "undefined" && !window.google?.maps;
+
   return (
     <>
-      {/* Load Google Maps Script */}
-      <Script
-        src={`https://maps.googleapis.com/maps/api/js?key=${GOOGLE_PLACES_API_KEY}&libraries=places`}
-        strategy="lazyOnload"
-        onLoad={() => {
-          console.log("Google Maps API loaded");
-          setIsScriptLoaded(true);
-        }}
-        onError={(e) => {
-          console.error("Failed to load Google Maps API:", e);
-        }}
-      />
+      {/* Load Google Maps Script with Places library - only if not already loaded */}
+      {shouldLoadScript && (
+        <Script
+          src={`https://maps.googleapis.com/maps/api/js?key=${GOOGLE_PLACES_API_KEY}&libraries=places`}
+          strategy="lazyOnload"
+          onLoad={() => {
+            setIsScriptLoaded(true);
+          }}
+          onError={(e) => {
+            console.error("Failed to load Google Maps API:", e);
+          }}
+        />
+      )}
 
       <div ref={wrapperRef} className="relative flex-1">
         <div className="relative">
@@ -209,14 +276,9 @@ export default function AddressAutocomplete({
           <input
             type="text"
             value={value}
-            onChange={(e) => {
-              setValue(e.target.value);
-              setIsVerified(false); // Reset verified state when user types
-              setActiveIndex(-1); // Reset keyboard selection when typing
-              onChange?.(e.target.value);
-            }}
+            onChange={handleInputChange}
             onKeyDown={handleKeyDown}
-            disabled={!ready || isGeocoding}
+            disabled={!isReady || isGeocoding}
             placeholder={placeholder}
             className="w-full pl-10 pr-10 py-3.5 bg-gray-800/80 border border-gray-700 rounded-xl text-base md:text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
             autoComplete="off"
@@ -234,7 +296,7 @@ export default function AddressAutocomplete({
             </div>
           )}
           {/* Initial loading spinner while Places API initializes */}
-          {!ready && isScriptLoaded && !isGeocoding && (
+          {!isReady && isScriptLoaded && !isGeocoding && (
             <div className="absolute right-3 top-1/2 -translate-y-1/2">
               <Loader2 className="w-5 h-5 text-gray-500 animate-spin" />
             </div>
@@ -242,32 +304,28 @@ export default function AddressAutocomplete({
         </div>
 
         {/* Suggestions dropdown */}
-        {status === "OK" && data.length > 0 && (
+        {suggestions.length > 0 && (
           <ul className="absolute z-50 w-full mt-2 bg-gray-800 border border-gray-700 rounded-xl shadow-xl overflow-hidden max-h-60 overflow-y-auto">
-            {data.map((suggestion, index) => {
-              const {
-                place_id,
-                structured_formatting: { main_text, secondary_text },
-              } = suggestion;
+            {suggestions.map((suggestion, index) => {
               const isActive = index === activeIndex;
 
               return (
                 <li
-                  key={place_id}
+                  key={suggestion.placeId}
                   ref={(el) => { listRef.current[index] = el; }}
-                  onClick={() => handleSelect(suggestion.description, place_id)}
+                  onClick={() => handleSelect(suggestion)}
                   onMouseEnter={() => setActiveIndex(index)}
                   className={`px-4 py-3 cursor-pointer transition-colors border-b border-gray-700/50 last:border-b-0 ${
                     isActive ? "bg-gray-700" : "hover:bg-gray-700/50"
                   }`}
                 >
                   <div className="flex items-start gap-3">
-                    <MapPin className={`w-4 h-4 mt-0.5 flex-shrink-0 ${
+                    <MapPin className={`w-4 h-4 mt-0.5 shrink-0 ${
                       isActive ? "text-emerald-400" : "text-emerald-500"
                     }`} />
                     <div>
-                      <p className={`text-sm font-medium ${isActive ? "text-white" : "text-white"}`}>{main_text}</p>
-                      <p className={`text-xs ${isActive ? "text-gray-300" : "text-gray-400"}`}>{secondary_text}</p>
+                      <p className="text-sm font-medium text-white">{suggestion.mainText}</p>
+                      <p className={`text-xs ${isActive ? "text-gray-300" : "text-gray-400"}`}>{suggestion.secondaryText}</p>
                     </div>
                   </div>
                 </li>
