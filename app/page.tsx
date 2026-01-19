@@ -750,6 +750,8 @@ export default function SolarCalculator() {
   const [results, setResults] = useState<CalculationResults | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [openFAQ, setOpenFAQ] = useState<number | null>(null);
+  const [footerQuickLinksOpen, setFooterQuickLinksOpen] = useState(false);
+  const [footerLegalOpen, setFooterLegalOpen] = useState(false);
   const [hasInteracted, setHasInteracted] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
@@ -1771,10 +1773,10 @@ export default function SolarCalculator() {
           </section>
 
           {/* Professional Footer */}
-          <footer className="mt-20 pt-12 border-t border-gray-800">
-            <div className="grid md:grid-cols-3 gap-8 mb-10">
+          <footer className="mt-10 md:mt-20 pt-8 md:pt-12 border-t border-gray-800">
+            <div className="grid md:grid-cols-3 gap-6 md:gap-8 mb-6 md:mb-10">
               {/* Brand Column */}
-              <div className="space-y-4">
+              <div className="space-y-3 md:space-y-4">
                 <Image
                   src="/sunscore.logo.png"
                   alt="SunScore"
@@ -1782,7 +1784,7 @@ export default function SolarCalculator() {
                   height={32}
                   className="h-8 w-auto opacity-80"
                 />
-                <p className="text-sm text-gray-500 leading-relaxed">
+                <p className="text-xs md:text-sm text-gray-500 leading-relaxed">
                   Helping homeowners make informed solar decisions with official government data and transparent savings estimates.
                 </p>
                 <div className="flex items-center gap-2 text-xs text-gray-500">
@@ -1791,10 +1793,16 @@ export default function SolarCalculator() {
                 </div>
               </div>
 
-              {/* Quick Links Column */}
-              <div className="space-y-4">
-                <p className="text-sm font-semibold text-white">Quick Links</p>
-                <nav className="flex flex-col gap-2">
+              {/* Quick Links Column - Accordion on Mobile */}
+              <div className="space-y-2 md:space-y-4">
+                <button
+                  onClick={() => setFooterQuickLinksOpen(!footerQuickLinksOpen)}
+                  className="w-full flex items-center justify-between text-sm font-semibold text-white md:cursor-default"
+                >
+                  <span>Quick Links</span>
+                  <ChevronDown className={`w-4 h-4 text-gray-500 md:hidden transition-transform ${footerQuickLinksOpen ? 'rotate-180' : ''}`} />
+                </button>
+                <nav className={`flex-col gap-2 ${footerQuickLinksOpen ? 'flex' : 'hidden'} md:flex`}>
                   {[
                     { label: "Calculator", href: "#calculator", isAnchor: true },
                     { label: "How it Works", href: "#how-it-works", isAnchor: true },
@@ -1817,10 +1825,16 @@ export default function SolarCalculator() {
                 </nav>
               </div>
 
-              {/* Legal Column */}
-              <div className="space-y-4">
-                <p className="text-sm font-semibold text-white">Legal</p>
-                <nav className="flex flex-col gap-2">
+              {/* Legal Column - Accordion on Mobile */}
+              <div className="space-y-2 md:space-y-4">
+                <button
+                  onClick={() => setFooterLegalOpen(!footerLegalOpen)}
+                  className="w-full flex items-center justify-between text-sm font-semibold text-white md:cursor-default"
+                >
+                  <span>Legal</span>
+                  <ChevronDown className={`w-4 h-4 text-gray-500 md:hidden transition-transform ${footerLegalOpen ? 'rotate-180' : ''}`} />
+                </button>
+                <nav className={`flex-col gap-2 ${footerLegalOpen ? 'flex' : 'hidden'} md:flex`}>
                   <a href="/privacy-policy" className="text-sm text-gray-400 hover:text-emerald-400 transition-colors">
                     Privacy Policy
                   </a>
@@ -1834,15 +1848,20 @@ export default function SolarCalculator() {
               </div>
             </div>
 
-            {/* Disclaimers */}
-            <div className="py-6 border-t border-gray-800/50 space-y-4">
-              <p className="text-xs text-gray-500 leading-relaxed">
+            {/* Disclaimers - Compact on Mobile */}
+            <div className="py-3 md:py-6 border-t border-gray-800/50 space-y-2 md:space-y-4">
+              <p className="text-[10px] md:text-xs text-gray-500 leading-tight md:leading-relaxed">
                 <strong className="text-gray-400">Solar Estimates:</strong> Production estimates powered by the NREL PVWatts® Calculator. This tool provides estimates only and does not guarantee actual savings. Actual results may vary based on roof condition, shading, local utility rates, and other factors.
               </p>
-              <p className="text-xs text-gray-500 leading-relaxed">
+              <p className="text-[10px] md:text-xs text-gray-500 leading-tight md:leading-relaxed">
                 <strong className="text-gray-400">Pricing:</strong> System costs are based on state-average installation prices and may vary based on installer, equipment choices, roof complexity, and local permitting requirements. Get quotes from local installers for accurate pricing.
               </p>
             </div>
+
+            {/* FTC Affiliate Disclosure */}
+            <p className="text-[10px] text-gray-600 text-center py-4 border-t border-gray-800/50">
+              SunScore is an independent consumer service. We may earn a commission when you connect with our partners.
+            </p>
 
             {/* Copyright Bar */}
             <div className="py-6 border-t border-gray-800/50 flex flex-col md:flex-row items-center justify-between gap-4">
