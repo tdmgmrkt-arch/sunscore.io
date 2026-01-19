@@ -1,6 +1,25 @@
 import { NextResponse } from 'next/server';
 
+// Allowed domains for API access
+const ALLOWED_DOMAINS = [
+  'sunscore.io',           // Production
+  'sunscoreio.vercel.app', // Staging/Vercel
+  'localhost:3000',        // Local Dev
+];
+
 export async function GET(request: Request) {
+  // Security: Validate request origin to prevent unauthorized API usage
+  const referer = request.headers.get('referer') || '';
+  const origin = request.headers.get('origin') || '';
+
+  const isAllowed = ALLOWED_DOMAINS.some(
+    (domain) => referer.includes(domain) || origin.includes(domain)
+  );
+
+  if (!isAllowed) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const { searchParams } = new URL(request.url);
   const lat = searchParams.get('lat');
   const lon = searchParams.get('lon');
