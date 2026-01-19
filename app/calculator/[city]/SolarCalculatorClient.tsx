@@ -680,9 +680,27 @@ export default function SolarCalculatorClient({
     }
   }, [debouncedMonthlyBill, calculateResults, hasInteracted, stateId]);
 
+  // Daily Reset + Hourly Growth: Feels "live" while being consistent for all users
   useEffect(() => {
-    setNeighborCount(Math.floor(Math.random() * (180 - 120 + 1)) + 120);
-  }, []);
+    // 1. Get Time Factors for "Real-Time" simulation
+    const now = new Date();
+    const dateStr = now.toLocaleDateString(); // e.g., "1/19/2026"
+    const hour = now.getHours();
+    const minute = now.getMinutes();
+
+    // 2. Create Stable Hash (City + Date)
+    // This ensures the baseline number is consistent for everyone in this city, on this specific date.
+    const seedString = cityName + dateStr;
+    const baseHash = seedString.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+
+    // 3. Calculate Today's Count
+    // Baseline: 40-140 (derived from hash)
+    // Growth: Increases by ~3 per hour + extra every 10 mins
+    const baseline = 40 + (baseHash % 100);
+    const growth = (hour * 3) + Math.floor(minute / 10);
+
+    setNeighborCount(baseline + growth);
+  }, [cityName]);
 
   // Restore calculator session from localStorage (for "Return to Estimate" flow)
   useEffect(() => {

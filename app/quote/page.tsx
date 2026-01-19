@@ -57,10 +57,33 @@ function QuoteContent() {
     }
   };
 
+  // Format phone number as (XXX) XXX-XXXX
+  const formatPhoneNumber = (value: string): string => {
+    // Strip all non-digits
+    const digits = value.replace(/\D/g, '');
+
+    // Format based on length
+    if (digits.length === 0) return '';
+    if (digits.length <= 3) return `(${digits}`;
+    if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
+    return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6, 10)}`;
+  };
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+
+    // Apply phone formatting for phone field
+    if (name === 'phone') {
+      setFormData((prev) => ({
+        ...prev,
+        phone: formatPhoneNumber(value),
+      }));
+      return;
+    }
+
     setFormData((prev) => ({
       ...prev,
-      [e.target.name]: e.target.value,
+      [name]: value,
     }));
   };
 
@@ -186,7 +209,7 @@ function QuoteContent() {
                         name="phone"
                         value={formData.phone}
                         onChange={handleChange}
-                        placeholder="Phone Number"
+                        placeholder="(555) 555-5555"
                         className="w-full bg-gray-950/80 border border-gray-700 hover:border-gray-600 text-white pl-12 pr-4 py-4 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all placeholder:text-gray-500"
                         required
                       />

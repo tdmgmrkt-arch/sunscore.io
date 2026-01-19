@@ -252,6 +252,46 @@ export default async function CityCalculatorPage({ params }: PageProps) {
     },
   };
 
+  // FAQ Schema for Rich Snippets
+  const faqSchema = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: [
+      {
+        "@type": "Question",
+        name: `How much can I save with solar in ${cityData.city}?`,
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: `Solar savings in ${cityData.city}, ${cityData.state_name} depend on your current electricity usage, roof orientation, and local utility rates. Our calculator uses official NREL satellite data specific to ${cityData.city}'s location to provide accurate estimates. Most homeowners save $15,000-$50,000 over 25 years.`,
+        },
+      },
+      {
+        "@type": "Question",
+        name: "How long does it take for solar to pay for itself?",
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: `The payback period for solar in ${cityData.city} depends on your electricity costs, system size, and local sun exposure. Most homeowners see their system pay for itself in 6-10 years through electricity savings. After that point, you're generating free electricity for the remaining life of your system.`,
+        },
+      },
+      {
+        "@type": "Question",
+        name: `What is the average SunScore in ${cityData.state_name}?`,
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: `${cityData.state_name} generally has good solar potential. The SunScore is based on peak sun hours per day from NREL satellite data. Scores above 70 indicate good solar potential, while scores above 85 are excellent.`,
+        },
+      },
+      {
+        "@type": "Question",
+        name: "What are my financing options?",
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: "You have several options: Cash Purchase (highest ROI), Solar Loans ($0 down available), Lease (lower savings, no upfront cost), or PPA (pay for power produced at a fixed rate).",
+        },
+      },
+    ],
+  };
+
   // ==========================================================================
   // NAMED SLOTS - Server-rendered content injected into client component
   // ==========================================================================
@@ -352,6 +392,10 @@ export default async function CityCalculatorPage({ params }: PageProps) {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
       />
 
       <SolarCalculatorClient
