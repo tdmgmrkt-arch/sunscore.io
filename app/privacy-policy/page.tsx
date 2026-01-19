@@ -31,15 +31,16 @@ export default function PrivacyPolicyPage() {
 
         {/* Content */}
         <div className="prose prose-invert prose-slate max-w-none space-y-8">
-          <p className="text-slate-400 text-sm">Last Updated: January 2025</p>
+          <p className="text-slate-400 text-sm">Last Updated: January 2026</p>
 
           <section className="space-y-4">
             <h2 className="text-xl font-semibold text-slate-50">
               1. Introduction
             </h2>
             <p className="leading-relaxed">
-              At SunScore (&quot;we&quot;, &quot;us&quot;), we respect your
-              privacy. This policy explains how we collect and use data.
+              At SunScore (sunscore.io) (&quot;we&quot;, &quot;us&quot;), we
+              respect your privacy. This policy explains how we collect and use
+              data.
             </p>
           </section>
 
@@ -50,38 +51,40 @@ export default function PrivacyPolicyPage() {
             <p className="leading-relaxed">
               We collect address data and utility usage estimates to provide
               solar calculations. This information is used solely to generate
-              your personalized solar savings estimate.
+              your personalized solar savings estimate. We do not sell your
+              personal data to third-party data brokers.
             </p>
           </section>
 
           <section className="space-y-4">
             <h2 className="text-xl font-semibold text-slate-50">
-              3. Third-Party Tracking & Cookies (CJ Affiliate)
+              3. Third-Party Tracking & Cookies (Awin)
             </h2>
             <ul className="list-disc list-inside space-y-3 text-slate-400">
               <li>
-                We use third-party tracking technology provided by Commission
-                Junction LLC (&quot;CJ Affiliate&quot;).
+                We use third-party tracking technology provided by Awin Ltd
+                (&quot;Awin&quot;).
               </li>
               <li>
                 When you click on a link to our partners (e.g., SunPower), a
-                cookie is placed on your browser to track the referral.
+                cookie is placed on your browser to track the referral. This
+                allows us to be credited if you complete a request.
               </li>
               <li>
                 We may share non-personally identifiable information (such as
-                click data and timestamps) with CJ Affiliate for the purpose of
-                tracking transactions and calculating commissions.
+                click data and timestamps) with Awin for the purpose of tracking
+                transactions and calculating commissions.
               </li>
               <li>
-                For more information on how CJ Affiliate processes data, please
-                visit the{" "}
+                For more information on how Awin processes data, please visit
+                the{" "}
                 <a
-                  href="https://www.cj.com/legal/privacy-policy-services"
+                  href="https://www.awin.com/us/privacy"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-emerald-400 hover:text-emerald-300 underline"
                 >
-                  CJ Services Privacy Policy
+                  Awin Privacy Policy
                 </a>
                 .
               </li>

@@ -31,11 +31,11 @@ export default function TermsOfServicePage() {
 
         {/* Content */}
         <div className="prose prose-invert prose-slate max-w-none space-y-8">
-          <p className="text-slate-400 text-sm">Last Updated: January 2025</p>
+          <p className="text-slate-400 text-sm">Last Updated: January 2026</p>
 
           <p className="text-lg leading-relaxed">
-            Please read these terms carefully before using the SunScore solar
-            savings calculator.
+            Please read these terms carefully before using the SunScore
+            (sunscore.io) solar savings calculator.
           </p>
 
           <section className="space-y-4">

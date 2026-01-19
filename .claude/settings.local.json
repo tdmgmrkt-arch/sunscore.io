@@ -8,7 +8,23 @@
       "Bash(cmd /c \"dir C:\\\\Users\\\\Owner\\\\package*.json\")",
       "Bash(curl:*)",
       "Bash(cat:*)",
-      "Bash(git config:*)"
+      "Bash(git config:*)",
+      "Bash(npx tsc:*)",
+      "Bash(timeout:*)",
+      "Bash(taskkill:*)",
+      "Bash(npm ls:*)",
+      "Bash(rm:*)",
+      "Bash(cmd //c \"taskkill /PID 104424 /F\")",
+      "Bash(cmd //c \"tasklist | findstr node\")",
+      "Bash(cmd //c \"taskkill /PID 114608 /F\")",
+      "Bash(cmd //c \"taskkill /PID 79492 /F\")",
+      "Bash(del nul)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(npx vercel:*)",
+      "Bash(npx ts-node --skip-project -e \"\nconst API_KEY = ''AIzaSyCWGlr4riq9c0M9p21s-qPfNCvGU3hglfc'';\n\nconst prompt = \\\\`You are an SEO content writer. Generate content for a solar calculator page split into two distinct sections.\n\nSTRICT SEO DATA:\n- Keyword: \"\"Solar panels in Austin\"\"\n- City: Austin, TX\n- Sun Hours: 5.5 peak hours \\(High Potential\\)\n- Savings Range: $27,000 to $80,000 \\(25-year estimate, depending on electricity usage\\)\n- Urgency: Rising utility rates, inflation protection. \\(NO Tax Credit mentions\\).\n\nOUTPUT REQUIREMENTS \\(JSON ONLY\\):\n1. title: SEO Title starting with \"\"Solar panels in Austin\"\"\n2. meta_description: Click-worthy description. Use the savings RANGE.\n3. h1: Exact keyword \"\"Solar panels in Austin\"\"\n4. intro_content: ONE punchy HTML paragraph \\(<p> tag only\\). Keep it 40-50 words.\n5. detailed_content: TWO HTML paragraphs \\(with <h3> headers\\). Focus on \"\"Escaping Rate Hikes\"\" and \"\"Long-term Wealth\"\".\n\nReturn ONLY valid JSON with no markdown formatting.\\\\`;\n\nfetch\\(''https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key='' + API_KEY, {\n  method: ''POST'',\n  headers: { ''Content-Type'': ''application/json'' },\n  body: JSON.stringify\\({\n    contents: [{ parts: [{ text: prompt }] }],\n    generationConfig: {\n      temperature: 0.7,\n      maxOutputTokens: 1024,\n      responseMimeType: ''application/json'',\n    },\n  }\\),\n}\\)\n.then\\(r => r.json\\(\\)\\)\n.then\\(data => {\n  console.log\\(''=== FULL RESPONSE ===''\\);\n  console.log\\(JSON.stringify\\(data, null, 2\\)\\);\n  \n  const text = data.candidates?.[0]?.content?.parts?.[0]?.text;\n  console.log\\(''\\\\n=== TEXT CONTENT ===''\\);\n  console.log\\(text\\);\n  \n  if \\(text\\) {\n    try {\n      const parsed = JSON.parse\\(text\\);\n      console.log\\(''\\\\n=== PARSED KEYS ===''\\);\n      console.log\\(Object.keys\\(parsed\\)\\);\n    } catch \\(e\\) {\n      console.log\\(''\\\\nFailed to parse:'', e.message\\);\n    }\n  }\n}\\)\n.catch\\(e => console.error\\(''Error:'', e\\)\\);\n\")",
+      "Bash(node -e \"\nconst API_KEY = ''AIzaSyCWGlr4riq9c0M9p21s-qPfNCvGU3hglfc'';\n\nconst prompt = ''You are an SEO content writer. Generate content for a solar calculator page split into two distinct sections. STRICT SEO DATA: - Keyword: \"\"Solar panels in Austin\"\" - City: Austin, TX - Sun Hours: 5.5 peak hours \\(High Potential\\) - Savings Range: $27,000 to $80,000 \\(25-year estimate\\) OUTPUT REQUIREMENTS \\(JSON ONLY\\): 1. title: SEO Title starting with \"\"Solar panels in Austin\"\" 2. meta_description: Click-worthy description 3. h1: Exact keyword \"\"Solar panels in Austin\"\" 4. intro_content: ONE HTML paragraph \\(<p> tag only\\) 5. detailed_content: TWO HTML paragraphs \\(with <h3> headers\\) Return ONLY valid JSON.'';\n\nfetch\\(''https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key='' + API_KEY, {\n  method: ''POST'',\n  headers: { ''Content-Type'': ''application/json'' },\n  body: JSON.stringify\\({\n    contents: [{ parts: [{ text: prompt }] }],\n    generationConfig: {\n      temperature: 0.7,\n      maxOutputTokens: 1024,\n      responseMimeType: ''application/json'',\n    },\n  }\\),\n}\\)\n.then\\(r => r.json\\(\\)\\)\n.then\\(data => {\n  console.log\\(''=== RESPONSE ===''\\);\n  const text = data.candidates?.[0]?.content?.parts?.[0]?.text;\n  console.log\\(text\\);\n  if \\(text\\) {\n    const parsed = JSON.parse\\(text\\);\n    console.log\\(''\\\\n=== KEYS ===''\\);\n    console.log\\(Object.keys\\(parsed\\)\\);\n  }\n}\\)\n.catch\\(e => console.error\\(''Error:'', e\\)\\);\n\")"
     ]
   }
 }

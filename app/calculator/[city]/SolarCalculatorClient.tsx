@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
+import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
@@ -583,6 +584,7 @@ export default function SolarCalculatorClient({
   detailedSlot,
   nearbyCitiesSlot,
 }: SolarCalculatorClientProps) {
+  const router = useRouter();
   const [address, setAddress] = useState(initialAddress);
   const [selectedLat, setSelectedLat] = useState<number>(initialLat);
   const [selectedLng, setSelectedLng] = useState<number>(initialLng);
@@ -681,6 +683,41 @@ export default function SolarCalculatorClient({
   useEffect(() => {
     setNeighborCount(Math.floor(Math.random() * (180 - 120 + 1)) + 120);
   }, []);
+
+  // Restore calculator session from localStorage (for "Return to Estimate" flow)
+  useEffect(() => {
+    try {
+      const savedSession = localStorage.getItem('sunscore_session');
+      if (savedSession) {
+        const sessionData = JSON.parse(savedSession);
+
+        // Only restore if returning to the same city page
+        const currentCitySlug = `${cityName.toLowerCase().replace(/\s+/g, '-')}-${stateId.toLowerCase()}`;
+        if (sessionData.citySlug === currentCitySlug) {
+          // Restore state
+          if (sessionData.monthlyBill) setMonthlyBill(sessionData.monthlyBill);
+          if (sessionData.billInputValue) setBillInputValue(sessionData.billInputValue);
+          if (sessionData.address) setAddress(sessionData.address);
+          if (sessionData.selectedLat) setSelectedLat(sessionData.selectedLat);
+          if (sessionData.selectedLng) setSelectedLng(sessionData.selectedLng);
+          if (sessionData.results) setResults(sessionData.results);
+          if (sessionData.hasInteracted) setHasInteracted(sessionData.hasInteracted);
+
+          // Scroll to results after state renders
+          if (sessionData.results) {
+            setTimeout(() => {
+              resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+            }, 100);
+          }
+        }
+
+        // Clear session after restore (one-time use)
+        localStorage.removeItem('sunscore_session');
+      }
+    } catch {
+      // Ignore localStorage errors (e.g., private browsing)
+    }
+  }, [cityName, stateId]);
 
   useEffect(() => {
     setBillInputValue(monthlyBill.toLocaleString());
@@ -822,11 +859,42 @@ export default function SolarCalculatorClient({
   };
 
   const handleGetQuote = () => {
-    if (!results) return;
-    const quoteUrl = `https://partner-link.com?zip=${encodeURIComponent(results.zipCode)}&bill=${monthlyBill}&score=${results.sunScore}&city=${encodeURIComponent(cityName)}&state=${stateId}`;
-    console.log("📊 Quote CTA clicked - Partner URL:", quoteUrl);
-    setToastMessage("Quote request logged! Check console.");
-    setShowToast(true);
+    // CASE 1: No results yet? Scroll to calculator and prompt user.
+    if (!results) {
+      const calculatorSection = document.getElementById("calculator");
+      if (calculatorSection) {
+        calculatorSection.scrollIntoView({ behavior: "smooth" });
+        const addressInput = document.querySelector('input[type="text"]');
+        if (addressInput instanceof HTMLElement) addressInput.focus();
+      }
+      setToastMessage("Please calculate your savings first!");
+      setShowToast(true);
+      return;
+    }
+
+    // Save calculator state to localStorage for session restore
+    const sessionData = {
+      monthlyBill,
+      billInputValue,
+      address,
+      selectedLat,
+      selectedLng,
+      results,
+      hasInteracted,
+      citySlug: `${cityName.toLowerCase().replace(/\s+/g, '-')}-${stateId.toLowerCase()}`,
+    };
+    localStorage.setItem('sunscore_session', JSON.stringify(sessionData));
+
+    // CASE 2: We have results. Navigate to the Quote Bridge Page.
+    const queryParams = new URLSearchParams({
+      zip: results.zipCode,
+      bill: monthlyBill.toString(),
+      score: results.sunScore.toString(),
+      city: cityName,
+      state: stateId
+    }).toString();
+
+    router.push(`/quote?${queryParams}`);
   };
 
   const faqs = [
@@ -883,7 +951,7 @@ export default function SolarCalculatorClient({
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            onClick={() => results && handleGetQuote()}
+            onClick={handleGetQuote}
             className="min-h-[44px] px-4 py-2.5 bg-gradient-to-r from-yellow-500 to-amber-500 hover:from-yellow-400 hover:to-amber-400 text-gray-900 text-sm font-semibold rounded-full shadow-lg shadow-yellow-500/20 transition-all"
           >
             Get Quote
@@ -932,7 +1000,7 @@ export default function SolarCalculatorClient({
               className="flex flex-wrap justify-center gap-x-4 md:gap-x-6 gap-y-2 md:gap-y-3 pt-2 md:pt-4"
             >
               {[
-                { icon: Shield, text: "NREL Verified Data" },
+                { icon: Shield, text: "Official NREL Data" },
                 { icon: Award, text: "25-Year Savings" },
                 { icon: Leaf, text: "Clean Energy" },
                 { icon: Clock, text: "Instant Results" },
@@ -962,7 +1030,7 @@ export default function SolarCalculatorClient({
             </h2>
             <div className="flex items-center justify-center gap-2 text-xs text-gray-400">
               <Shield className="w-3.5 h-3.5 text-emerald-500" />
-              <span>Powered by NREL PVWatts® Data</span>
+              <span>Estimates based on NREL PVWatts® Data</span>
             </div>
           </div>
 
@@ -1186,7 +1254,7 @@ export default function SolarCalculatorClient({
                               onClick={handleGetQuote}
                               className="mt-3 text-xs font-bold text-emerald-400 hover:text-emerald-300 flex items-center gap-1 transition-colors border-b border-emerald-500/30 hover:border-emerald-400 pb-0.5"
                             >
-                              Check Eligibility for this Amount
+                              Unlock Your 25-Year Savings Report
                               <ArrowRight className="w-3 h-3" />
                             </button>
                           </div>
@@ -1307,7 +1375,7 @@ export default function SolarCalculatorClient({
                       onClick={handleGetQuote}
                       className="w-full py-5 px-6 bg-gradient-to-r from-yellow-500 via-amber-500 to-yellow-500 hover:from-yellow-400 hover:via-amber-400 hover:to-yellow-400 text-gray-900 font-bold text-lg rounded-2xl shadow-xl shadow-yellow-500/30 hover:shadow-yellow-500/40 flex items-center justify-center gap-3 transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] group"
                     >
-                      <span>Get My Official Quote & Verify Incentives</span>
+                      <span>Get My Official Quote & Savings Analysis</span>
                       <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
                     </button>
                     <p className="text-center text-xs text-gray-500 mt-3">
@@ -1338,7 +1406,7 @@ export default function SolarCalculatorClient({
               {[
                 { step: "1", title: "Location Analysis", description: `We use NREL satellite data for ${cityName}, ${stateId} to analyze solar irradiance at your exact location.`, icon: MapPin, color: "cyan" },
                 { step: "2", title: "Production Calculation", description: `Using the PVWatts® model, we calculate estimated annual production based on ${stateName}'s weather patterns.`, icon: Sun, color: "emerald" },
-                { step: "3", title: "Savings Projection", description: "We compare your utility costs (with 4% annual inflation) against owning solar to show 25-year savings.", icon: TrendingUp, color: "cyan" },
+                { step: "3", title: "Savings Projection", description: "We compare your current utility costs (based on historical utility rate trends) against owning solar to show your 25-year savings.", icon: TrendingUp, color: "cyan" },
               ].map(({ step, title, description, icon: Icon, color }) => (
                 <div key={step} className="relative pt-4 pl-4">
                   {/* Step number badge - Positioned outside card */}
@@ -1412,7 +1480,7 @@ export default function SolarCalculatorClient({
               </p>
               <div className="flex items-center gap-2 text-xs text-gray-500">
                 <Shield className="w-3 h-3 text-emerald-500" />
-                <span>Powered by NREL PVWatts®</span>
+                <span>Estimates based on NREL PVWatts®</span>
               </div>
             </div>
 
@@ -1481,7 +1549,7 @@ export default function SolarCalculatorClient({
             className="fixed bottom-0 left-0 right-0 p-4 bg-gray-950/90 backdrop-blur-xl border-t border-yellow-500/20 md:hidden z-50"
           >
             <button
-              onClick={() => results && handleGetQuote()}
+              onClick={handleGetQuote}
               className={`w-full min-h-[48px] py-4 font-bold text-lg rounded-xl shadow-lg flex items-center justify-center gap-2 active:scale-[0.98] transition-all duration-200 ${
                 results
                   ? "bg-gradient-to-r from-yellow-500 via-amber-500 to-yellow-500 text-gray-900 shadow-yellow-500/30"

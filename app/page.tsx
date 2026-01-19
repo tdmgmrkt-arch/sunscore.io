@@ -852,6 +852,38 @@ export default function SolarCalculator() {
     setNeighborCount(Math.floor(Math.random() * (180 - 120 + 1)) + 120);
   }, []);
 
+  // Restore calculator session from localStorage (for "Return to Estimate" flow)
+  useEffect(() => {
+    try {
+      const savedSession = localStorage.getItem('sunscore_session');
+      if (savedSession) {
+        const sessionData = JSON.parse(savedSession);
+
+        // Restore state
+        if (sessionData.monthlyBill) setMonthlyBill(sessionData.monthlyBill);
+        if (sessionData.billInputValue) setBillInputValue(sessionData.billInputValue);
+        if (sessionData.address) setAddress(sessionData.address);
+        if (sessionData.selectedLat) setSelectedLat(sessionData.selectedLat);
+        if (sessionData.selectedLng) setSelectedLng(sessionData.selectedLng);
+        if (sessionData.selectedStateId) setSelectedStateId(sessionData.selectedStateId);
+        if (sessionData.results) setResults(sessionData.results);
+        if (sessionData.hasInteracted) setHasInteracted(sessionData.hasInteracted);
+
+        // Clear session after restore (one-time use)
+        localStorage.removeItem('sunscore_session');
+
+        // Scroll to results after state renders
+        if (sessionData.results) {
+          setTimeout(() => {
+            resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+          }, 100);
+        }
+      }
+    } catch {
+      // Ignore localStorage errors (e.g., private browsing)
+    }
+  }, []);
+
   // Sync bill input value when slider changes monthlyBill
   useEffect(() => {
     setBillInputValue(monthlyBill.toLocaleString());
@@ -956,6 +988,19 @@ export default function SolarCalculator() {
   // Handle Get Quote CTA - Redirects to Bridge Page
   const handleGetQuote = () => {
     if (!results) return;
+
+    // Save calculator state to localStorage for session restore
+    const sessionData = {
+      monthlyBill,
+      billInputValue,
+      address,
+      selectedLat,
+      selectedLng,
+      selectedStateId,
+      results,
+      hasInteracted,
+    };
+    localStorage.setItem('sunscore_session', JSON.stringify(sessionData));
 
     // Construct URL params with the data we have
     const queryParams = new URLSearchParams({

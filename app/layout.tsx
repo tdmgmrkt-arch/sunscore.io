@@ -14,31 +14,30 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "2025 Solar Calculator | Official NREL Data & Federal Tax Credit",
+  title: "2026 Solar Calculator | Official NREL Data & Savings Estimates",
   description:
-    "Calculate your solar savings with official NREL government data. See your 30% Federal Tax Credit ($5,400+), 25-year savings estimate, and payback period. Free instant results.",
+    "Calculate your solar savings with official NREL government data. See your estimated 25-year savings, ROI, and payback period based on your current electric bill. Free instant results.",
   keywords: [
     "solar calculator",
     "solar savings calculator",
     "solar panel calculator",
-    "federal solar tax credit",
-    "ITC calculator",
+    "solar payback calculator",
     "NREL solar",
     "solar ROI calculator",
-    "2025 solar incentives",
+    "solar cost estimator",
   ],
   openGraph: {
-    title: "2025 Solar Calculator | See Your $5,400+ Federal Tax Credit",
+    title: "2026 Solar Calculator | Official NREL Data & ROI Estimates",
     description:
-      "Stop renting your power. Calculate your 25-year solar savings with official NREL data. Includes 30% Federal Tax Credit.",
+      "Stop renting your power. Calculate your 25-year solar savings and payback period with official NREL data. Compare ownership vs. renting power.",
     type: "website",
     locale: "en_US",
   },
   twitter: {
     card: "summary_large_image",
-    title: "2025 Solar Calculator | Official NREL Data",
+    title: "2026 Solar Calculator | Official NREL Data",
     description:
-      "Calculate your solar savings. See your 30% Federal Tax Credit and 25-year savings.",
+      "Calculate your solar savings. See your estimated 25-year savings, ROI, and payback period.",
   },
   robots: {
     index: true,
