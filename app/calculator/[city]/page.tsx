@@ -1,6 +1,7 @@
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import { ChevronRight, Home } from "lucide-react";
 import {
   getCityBySlug,
   getTopCitiesForBuild,
@@ -252,6 +253,39 @@ export default async function CityCalculatorPage({ params }: PageProps) {
     },
   };
 
+  // Breadcrumb Schema for Rich Snippets
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://sunscore.io';
+  const breadcrumbSchema = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      {
+        "@type": "ListItem",
+        position: 1,
+        name: "Home",
+        item: baseUrl,
+      },
+      {
+        "@type": "ListItem",
+        position: 2,
+        name: "Locations",
+        item: `${baseUrl}/locations`,
+      },
+      {
+        "@type": "ListItem",
+        position: 3,
+        name: cityData.state_name,
+        item: `${baseUrl}/locations/${cityData.state_id.toLowerCase()}`,
+      },
+      {
+        "@type": "ListItem",
+        position: 4,
+        name: cityData.city,
+        item: `${baseUrl}/calculator/${slug}`,
+      },
+    ],
+  };
+
   // FAQ Schema for Rich Snippets
   const faqSchema = {
     "@context": "https://schema.org",
@@ -295,6 +329,61 @@ export default async function CityCalculatorPage({ params }: PageProps) {
   // ==========================================================================
   // NAMED SLOTS - Server-rendered content injected into client component
   // ==========================================================================
+
+  // SLOT 0: Breadcrumb Navigation - Renders below header
+  const BreadcrumbNav = (
+    <nav
+      aria-label="Breadcrumb"
+      className="max-w-5xl mx-auto px-4 py-3 border-b border-gray-800/30"
+    >
+      <ol className="flex items-center gap-1 text-xs text-gray-500 flex-wrap">
+        {/* Home */}
+        <li>
+          <Link
+            href="/"
+            className="flex items-center gap-1 hover:text-emerald-400 transition-colors"
+          >
+            <Home className="w-3.5 h-3.5" />
+            <span className="sr-only md:not-sr-only">Home</span>
+          </Link>
+        </li>
+        <li>
+          <ChevronRight className="w-3.5 h-3.5 text-gray-600" />
+        </li>
+
+        {/* Locations */}
+        <li>
+          <Link
+            href="/locations"
+            className="hover:text-emerald-400 transition-colors"
+          >
+            Locations
+          </Link>
+        </li>
+        <li>
+          <ChevronRight className="w-3.5 h-3.5 text-gray-600" />
+        </li>
+
+        {/* State */}
+        <li>
+          <Link
+            href={`/locations/${cityData.state_id.toLowerCase()}`}
+            className="hover:text-emerald-400 transition-colors"
+          >
+            {cityData.state_name}
+          </Link>
+        </li>
+        <li>
+          <ChevronRight className="w-3.5 h-3.5 text-gray-600" />
+        </li>
+
+        {/* Current City (not a link) */}
+        <li>
+          <span className="text-gray-400 font-medium">{cityData.city}</span>
+        </li>
+      </ol>
+    </nav>
+  );
 
   // SLOT 1: Intro Card (Glassmorphism Style) - Renders between Score & Chart
   const IntroCard = (
@@ -395,6 +484,10 @@ export default async function CityCalculatorPage({ params }: PageProps) {
       />
       <script
         type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
+      />
+      <script
+        type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
       />
 
@@ -409,6 +502,7 @@ export default async function CityCalculatorPage({ params }: PageProps) {
         preloadedSolarData={solarData ?? undefined}
         initialMonthlyBill={defaultBill}
         // Named slots
+        breadcrumbSlot={BreadcrumbNav}
         introSlot={IntroCard}
         detailedSlot={DetailedSection}
         nearbyCitiesSlot={NearbyCitiesSection}

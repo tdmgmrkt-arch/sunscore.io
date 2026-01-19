@@ -80,6 +80,7 @@ interface SolarCalculatorClientProps {
   preloadedSolarData?: PreloadedSolarData;
   initialMonthlyBill?: number; // Dynamic bill from NREL/climate data
   // Named slots for server-rendered content
+  breadcrumbSlot?: React.ReactNode; // For breadcrumb navigation (below header)
   introSlot?: React.ReactNode; // For "Why Solar" text (between Score & Chart)
   detailedSlot?: React.ReactNode; // For "Financial Deep Dive" (above FAQ)
   nearbyCitiesSlot?: React.ReactNode; // For nearby city links (below FAQ, above footer)
@@ -580,6 +581,7 @@ export default function SolarCalculatorClient({
   currentYear,
   preloadedSolarData,
   initialMonthlyBill,
+  breadcrumbSlot,
   introSlot,
   detailedSlot,
   nearbyCitiesSlot,
@@ -978,6 +980,9 @@ export default function SolarCalculatorClient({
           </motion.button>
         </nav>
       </header>
+
+      {/* Breadcrumb Navigation */}
+      {breadcrumbSlot}
 
       {/* Hero - City Specific */}
       <section className="relative overflow-hidden">
