@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 // Allowed domains for API access
 const ALLOWED_DOMAINS = [
   'sunscore.io',           // Production
-  'sunscoreio.vercel.app', // Staging/Vercel
+  'sunscore-io.vercel.app', // Staging/Vercel
   'localhost:3000',        // Local Dev
 ];
 
