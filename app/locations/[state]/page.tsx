@@ -91,6 +91,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const { state } = await params;
   const stateUpper = state.toUpperCase();
   const stateName = STATE_NAMES[stateUpper] || stateUpper;
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://sunscore.io";
 
   return {
     title: `Solar Calculators in ${stateName} | SunScore`,
@@ -98,6 +99,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     openGraph: {
       title: `Solar Calculators in ${stateName} | SunScore`,
       description: `Find solar savings calculators for cities in ${stateName}. Get personalized 25-year savings estimates based on official NREL data.`,
+    },
+    alternates: {
+      canonical: `${baseUrl}/locations/${state}`,
     },
   };
 }
@@ -110,6 +114,7 @@ export default async function StateCitiesPage({ params }: PageProps) {
   const { state } = await params;
   const stateUpper = state.toUpperCase();
   const stateName = STATE_NAMES[stateUpper];
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://sunscore.io";
 
   // Validate state exists
   if (!stateName) {
@@ -127,8 +132,39 @@ export default async function StateCitiesPage({ params }: PageProps) {
     notFound();
   }
 
+  // BreadcrumbList Schema for SEO
+  const breadcrumbSchema = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      {
+        "@type": "ListItem",
+        position: 1,
+        name: "Home",
+        item: baseUrl,
+      },
+      {
+        "@type": "ListItem",
+        position: 2,
+        name: "Locations",
+        item: `${baseUrl}/locations`,
+      },
+      {
+        "@type": "ListItem",
+        position: 3,
+        name: stateName,
+        item: `${baseUrl}/locations/${state}`,
+      },
+    ],
+  };
+
   return (
-    <main className="min-h-screen bg-gradient-to-b from-gray-950 via-gray-900 to-gray-950 text-white">
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
+      />
+      <main className="min-h-screen bg-gradient-to-b from-gray-950 via-gray-900 to-gray-950 text-white">
       {/* Header */}
       <header className="sticky top-0 z-40 w-full border-b border-slate-800/50 bg-slate-950/80 backdrop-blur-md">
         <nav className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
@@ -383,5 +419,6 @@ export default async function StateCitiesPage({ params }: PageProps) {
         </div>
       </footer>
     </main>
+    </>
   );
 }

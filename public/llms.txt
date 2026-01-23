@@ -1,0 +1,61 @@
+# SunScore - Solar Savings Calculator
+
+> SunScore is a free solar savings calculator that uses official NREL (National Renewable Energy Laboratory) government data to provide accurate solar energy estimates for homeowners across the United States.
+
+## What SunScore Does
+
+SunScore helps homeowners understand their solar potential by calculating:
+- Estimated 25-year savings from switching to solar
+- System cost estimates based on state-specific pricing
+- Payback period (typically 6-10 years)
+- Annual energy production in kWh
+- Environmental impact (CO2 offset, trees equivalent)
+- A "SunScore" rating (0-100) based on local solar irradiance
+
+## How It Works
+
+1. User enters their address (any US location)
+2. System fetches solar irradiance data from NREL's PVWatts API
+3. Calculator uses local electricity rates and solar installation costs
+4. Results show side-by-side comparison: utility costs vs. solar ownership
+
+## Data Sources
+
+- **Solar Data**: NREL PVWatts v8 API (official US government data)
+- **Electricity Rates**: State-by-state average rates from EIA data
+- **Solar Pricing**: Regional $/watt installation costs (2024-2026 data)
+
+## Key Pages
+
+- Homepage: https://sunscore.io - Main calculator
+- City Pages: https://sunscore.io/calculator/{city-state} - Location-specific calculators (1,000+ cities)
+- Locations: https://sunscore.io/locations - Browse by state
+
+## Important Facts
+
+- 100% free to use, no signup required
+- No sales calls or spam - purely informational
+- Calculations based on 6kW system size (adjustable)
+- Assumes 4% annual utility rate inflation
+- 25-year analysis period (typical solar panel warranty)
+- Federal tax credit (30% ITC) included in calculations
+
+## Who Should Use SunScore
+
+- Homeowners researching solar energy
+- People comparing solar quotes
+- Anyone wanting to understand solar ROI
+- Real estate professionals assessing property value
+
+## Contact
+
+Website: https://sunscore.io
+Privacy Policy: https://sunscore.io/privacy-policy
+Terms of Service: https://sunscore.io/terms-of-service
+
+## Technical Notes
+
+- Built with Next.js 16
+- Server-side rendering for city pages
+- Real-time calculations via NREL API
+- Mobile-responsive design

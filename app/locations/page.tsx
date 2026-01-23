@@ -8,6 +8,8 @@ import { getTopCitiesForBuild } from "@/lib/cities";
 // METADATA
 // =============================================================================
 
+const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || "https://sunscore.io";
+
 export const metadata: Metadata = {
   title: "Solar Calculators by State | SunScore",
   description:
@@ -16,6 +18,9 @@ export const metadata: Metadata = {
     title: "Solar Calculators by State | SunScore",
     description:
       "Find solar savings calculators for every major city in your state. Get personalized 25-year savings estimates based on official NREL data.",
+  },
+  alternates: {
+    canonical: `${BASE_URL}/locations`,
   },
 };
 
@@ -95,8 +100,33 @@ export default function LocationsPage() {
     citiesPerState[city.state_id] = (citiesPerState[city.state_id] || 0) + 1;
   });
 
+  // BreadcrumbList Schema for SEO
+  const breadcrumbSchema = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      {
+        "@type": "ListItem",
+        position: 1,
+        name: "Home",
+        item: BASE_URL,
+      },
+      {
+        "@type": "ListItem",
+        position: 2,
+        name: "Locations",
+        item: `${BASE_URL}/locations`,
+      },
+    ],
+  };
+
   return (
-    <main className="min-h-screen bg-gradient-to-b from-gray-950 via-gray-900 to-gray-950 text-white">
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
+      />
+      <main className="min-h-screen bg-gradient-to-b from-gray-950 via-gray-900 to-gray-950 text-white">
       {/* Header */}
       <header className="sticky top-0 z-40 w-full border-b border-slate-800/50 bg-slate-950/80 backdrop-blur-md">
         <nav className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
@@ -321,5 +351,6 @@ export default function LocationsPage() {
         </div>
       </footer>
     </main>
+    </>
   );
 }
