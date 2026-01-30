@@ -56,6 +56,8 @@ interface CalculationResults {
   sunScore: number;
   sunHours: number;
   zipCode: string;
+  homeValueIncrease: number;
+  billOffset: number;
 }
 
 // =============================================================================
@@ -814,6 +816,15 @@ export default function SolarCalculator() {
       const co2Offset = (annualProduction * 0.0007) * YEARS_ANALYSIS; // tons CO2
       const treesEquivalent = Math.round(co2Offset * 16.5); // ~16.5 trees per ton of CO2
 
+      // Home value increase: ~$4k per kW of solar (Zillow data)
+      const systemSizeInKw = SYSTEM_SIZE_WATTS / 1000;
+      const homeValueIncrease = systemSizeInKw * 4000;
+
+      // Bill offset: percentage of electricity bill covered by solar
+      const electricityRate = getElectricityRate(stateId);
+      const yearlyConsumption = annualBill / electricityRate; // kWh consumed per year
+      const billOffset = Math.min(100, Math.round((annualProduction / yearlyConsumption) * 100));
+
       return {
         annualProduction,
         systemCost,
@@ -830,6 +841,8 @@ export default function SolarCalculator() {
         sunScore,
         sunHours,
         zipCode: zip,
+        homeValueIncrease,
+        billOffset,
       };
     },
     []
@@ -1504,15 +1517,15 @@ export default function SolarCalculator() {
                       className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4"
                     >
                       <StatCard
-                        icon={Home}
-                        label="Est. System Cost"
-                        value={formatCurrency(results.systemCost)}
+                        icon={TrendingUp}
+                        label="Est. Home Value Increase"
+                        value={formatCurrency(results.homeValueIncrease)}
                         iconColor="text-emerald-400"
                       />
                       <StatCard
-                        icon={TrendingUp}
-                        label="Payback Period"
-                        value={`${results.paybackYears} years`}
+                        icon={ShieldCheck}
+                        label="Bill Offset"
+                        value={`${results.billOffset}%`}
                         highlight
                         iconColor="text-emerald-400"
                       />
