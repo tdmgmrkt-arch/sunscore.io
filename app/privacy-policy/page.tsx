@@ -81,33 +81,33 @@ export default function PrivacyPolicyPage() {
 
           <section className="space-y-4">
             <h2 className="text-xl font-semibold text-slate-50">
-              3. Third-Party Tracking & Cookies (Awin)
+              3. Third-Party Tracking & Cookies (FlexOffers)
             </h2>
             <ul className="list-disc list-inside space-y-3 text-slate-400">
               <li>
-                We use third-party tracking technology provided by Awin Ltd
-                (&quot;Awin&quot;).
+                We use third-party tracking technology provided by FlexOffers
+                (&quot;FlexOffers&quot;).
               </li>
               <li>
-                When you click on a link to our partners (e.g., SunPower), a
+                When you click on a link to our partners, a
                 cookie is placed on your browser to track the referral. This
                 allows us to be credited if you complete a request.
               </li>
               <li>
                 We may share non-personally identifiable information (such as
-                click data and timestamps) with Awin for the purpose of tracking
-                transactions and calculating commissions.
+                click data and timestamps) with FlexOffers for the purpose of
+                tracking transactions and calculating commissions.
               </li>
               <li>
-                For more information on how Awin processes data, please visit
-                the{" "}
+                For more information on how FlexOffers processes data, please
+                visit the{" "}
                 <a
-                  href="https://www.awin.com/us/privacy"
+                  href="https://www.flexoffers.com/privacy-policy/"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-emerald-400 hover:text-emerald-300 underline"
                 >
-                  Awin Privacy Policy
+                  FlexOffers Privacy Policy
                 </a>
                 .
               </li>
@@ -116,24 +116,300 @@ export default function PrivacyPolicyPage() {
 
           <section className="space-y-4">
             <h2 className="text-xl font-semibold text-slate-50">
-              4. Your Rights
+              4. Your Rights (General)
             </h2>
             <p className="leading-relaxed">
               You may disable cookies in your browser settings, though this may
               prevent us from crediting your referral. You have the right to
               request information about the data we hold about you and to
-              request its deletion.
+              request its deletion. To exercise any rights described below,
+              email{" "}
+              <a
+                href="mailto:privacy@sunscore.io"
+                className="text-emerald-400 hover:text-emerald-300 underline"
+              >
+                privacy@sunscore.io
+              </a>{" "}
+              with the subject line &quot;Privacy Request.&quot; We will
+              respond within the timelines required by applicable law.
             </p>
           </section>
 
           <section className="space-y-4">
             <h2 className="text-xl font-semibold text-slate-50">
-              5. Contact Us
+              5. California Residents (CCPA / CPRA)
             </h2>
             <p className="leading-relaxed">
-              If you have questions about this privacy policy, please contact us
-              through our website.
+              If you are a California resident, the California Consumer Privacy
+              Act (CCPA) as amended by the California Privacy Rights Act (CPRA)
+              provides you with specific rights regarding your personal
+              information.
             </p>
+            <div className="p-5 bg-slate-900/50 border border-slate-800/50 rounded-xl">
+              <p className="leading-relaxed mb-3">
+                <strong className="text-slate-200">
+                  Categories of personal information we collect:
+                </strong>
+              </p>
+              <ul className="list-disc list-inside space-y-2 text-slate-400">
+                <li>
+                  <strong className="text-slate-300">Identifiers:</strong>{" "}
+                  property address, IP address, device identifiers
+                </li>
+                <li>
+                  <strong className="text-slate-300">
+                    Commercial information:
+                  </strong>{" "}
+                  utility bill estimates and solar calculator inputs
+                </li>
+                <li>
+                  <strong className="text-slate-300">
+                    Internet/network activity:
+                  </strong>{" "}
+                  pages visited, referrer, click data
+                </li>
+                <li>
+                  <strong className="text-slate-300">Geolocation:</strong>{" "}
+                  approximate location derived from your address or IP
+                </li>
+              </ul>
+            </div>
+            <p className="leading-relaxed">
+              <strong className="text-slate-200">
+                Your CCPA/CPRA rights include:
+              </strong>
+            </p>
+            <ul className="list-disc list-inside space-y-2 text-slate-400">
+              <li>
+                <strong className="text-slate-300">Right to Know:</strong>{" "}
+                request the categories and specific pieces of personal
+                information we have collected about you.
+              </li>
+              <li>
+                <strong className="text-slate-300">Right to Delete:</strong>{" "}
+                request deletion of personal information we hold about you,
+                subject to legal exceptions.
+              </li>
+              <li>
+                <strong className="text-slate-300">Right to Correct:</strong>{" "}
+                request correction of inaccurate personal information.
+              </li>
+              <li>
+                <strong className="text-slate-300">
+                  Right to Opt-Out of Sale or Sharing:
+                </strong>{" "}
+                we do not sell your personal information. When you request a
+                solar quote, we share your information with solar installation
+                partners at your direction; this sharing is necessary to fulfill
+                your request and is not considered a &quot;sale&quot; under the
+                CCPA.
+              </li>
+              <li>
+                <strong className="text-slate-300">
+                  Right to Limit Use of Sensitive Personal Information:
+                </strong>{" "}
+                we do not use sensitive personal information for purposes
+                beyond what is necessary to provide our services.
+              </li>
+              <li>
+                <strong className="text-slate-300">
+                  Right to Non-Discrimination:
+                </strong>{" "}
+                we will not discriminate against you for exercising any of
+                these rights.
+              </li>
+            </ul>
+            <p className="leading-relaxed">
+              To submit a verifiable consumer request, email{" "}
+              <a
+                href="mailto:privacy@sunscore.io"
+                className="text-emerald-400 hover:text-emerald-300 underline"
+              >
+                privacy@sunscore.io
+              </a>
+              . We will respond within 45 days as required by the CCPA. You
+              may also designate an authorized agent to make a request on your
+              behalf.
+            </p>
+          </section>
+
+          <section className="space-y-4">
+            <h2 className="text-xl font-semibold text-slate-50">
+              6. European Residents (GDPR)
+            </h2>
+            <p className="leading-relaxed">
+              If you are located in the European Economic Area (EEA), United
+              Kingdom, or Switzerland, the General Data Protection Regulation
+              (GDPR) provides you with specific rights regarding your personal
+              data. SunScore acts as a data controller for the personal data
+              you provide through our website.
+            </p>
+            <p className="leading-relaxed">
+              <strong className="text-slate-200">
+                Legal bases for processing:
+              </strong>{" "}
+              We process your personal data based on (a) your{" "}
+              <strong className="text-slate-300">consent</strong> when you
+              submit information to our calculator or quote form; (b) our{" "}
+              <strong className="text-slate-300">legitimate interests</strong>{" "}
+              in operating, improving, and securing our website; and (c)
+              compliance with{" "}
+              <strong className="text-slate-300">legal obligations</strong>.
+            </p>
+            <p className="leading-relaxed">
+              <strong className="text-slate-200">
+                Your GDPR rights include:
+              </strong>
+            </p>
+            <ul className="list-disc list-inside space-y-2 text-slate-400">
+              <li>
+                <strong className="text-slate-300">Right of Access</strong>{" "}
+                &mdash; obtain confirmation of whether we process your data and
+                receive a copy.
+              </li>
+              <li>
+                <strong className="text-slate-300">Right to Rectification</strong>{" "}
+                &mdash; correct inaccurate or incomplete data.
+              </li>
+              <li>
+                <strong className="text-slate-300">Right to Erasure</strong>{" "}
+                (&quot;Right to be Forgotten&quot;) &mdash; request deletion of
+                your data under certain conditions.
+              </li>
+              <li>
+                <strong className="text-slate-300">
+                  Right to Restrict Processing
+                </strong>{" "}
+                &mdash; limit how we process your data in specific
+                circumstances.
+              </li>
+              <li>
+                <strong className="text-slate-300">
+                  Right to Data Portability
+                </strong>{" "}
+                &mdash; receive your data in a structured, commonly used,
+                machine-readable format.
+              </li>
+              <li>
+                <strong className="text-slate-300">Right to Object</strong>{" "}
+                &mdash; object to processing based on legitimate interests,
+                including direct marketing.
+              </li>
+              <li>
+                <strong className="text-slate-300">
+                  Right to Withdraw Consent
+                </strong>{" "}
+                &mdash; withdraw consent at any time without affecting the
+                lawfulness of processing before withdrawal.
+              </li>
+              <li>
+                <strong className="text-slate-300">
+                  Right to Lodge a Complaint
+                </strong>{" "}
+                &mdash; file a complaint with your local supervisory authority
+                if you believe we have violated your rights.
+              </li>
+            </ul>
+            <p className="leading-relaxed">
+              SunScore primarily serves U.S.-based users. If you are accessing
+              our site from outside the United States, your data may be
+              transferred to and processed in the United States, which may
+              have different data protection standards than your country of
+              residence. By using our site, you consent to this transfer.
+            </p>
+            <p className="leading-relaxed">
+              To exercise any GDPR right, email{" "}
+              <a
+                href="mailto:privacy@sunscore.io"
+                className="text-emerald-400 hover:text-emerald-300 underline"
+              >
+                privacy@sunscore.io
+              </a>
+              . We will respond within 30 days as required by the GDPR.
+            </p>
+          </section>
+
+          <section className="space-y-4">
+            <h2 className="text-xl font-semibold text-slate-50">
+              7. Data Retention
+            </h2>
+            <p className="leading-relaxed">
+              We retain personal information only as long as necessary to
+              fulfill the purposes described in this policy, comply with legal
+              obligations, resolve disputes, and enforce our agreements.
+              Calculator inputs are not persisted beyond your active session
+              unless you explicitly submit a quote request.
+            </p>
+          </section>
+
+          <section className="space-y-4">
+            <h2 className="text-xl font-semibold text-slate-50">
+              8. Children&apos;s Privacy
+            </h2>
+            <p className="leading-relaxed">
+              SunScore is not directed to children under the age of 16, and we
+              do not knowingly collect personal information from children. If
+              you believe a child has provided us with personal information,
+              please contact us at{" "}
+              <a
+                href="mailto:privacy@sunscore.io"
+                className="text-emerald-400 hover:text-emerald-300 underline"
+              >
+                privacy@sunscore.io
+              </a>{" "}
+              and we will promptly delete it.
+            </p>
+          </section>
+
+          <section className="space-y-4">
+            <h2 className="text-xl font-semibold text-slate-50">
+              9. Changes to This Policy
+            </h2>
+            <p className="leading-relaxed">
+              We may update this privacy policy from time to time. The &quot;Last
+              Updated&quot; date at the top of this page indicates when the
+              policy was most recently revised. Material changes will be
+              communicated through a prominent notice on our website.
+            </p>
+          </section>
+
+          <section className="space-y-4">
+            <h2 className="text-xl font-semibold text-slate-50">
+              10. Contact Us
+            </h2>
+            <p className="leading-relaxed">
+              If you have questions about this privacy policy or wish to
+              exercise any of the rights described above, you can reach us at:
+            </p>
+            <div className="p-5 bg-slate-900/50 border border-slate-800/50 rounded-xl space-y-2">
+              <p className="text-slate-300">
+                <strong>Email:</strong>{" "}
+                <a
+                  href="mailto:privacy@sunscore.io"
+                  className="text-emerald-400 hover:text-emerald-300 underline"
+                >
+                  privacy@sunscore.io
+                </a>
+              </p>
+              <p className="text-slate-300">
+                <strong>General Inquiries:</strong>{" "}
+                <a
+                  href="mailto:hello@sunscore.io"
+                  className="text-emerald-400 hover:text-emerald-300 underline"
+                >
+                  hello@sunscore.io
+                </a>
+              </p>
+              <p className="text-slate-300">
+                <strong>Mailing Address:</strong>
+                <br />
+                SunScore
+                <br />
+                PO Box 614
+                <br />
+                Folsom, CA 95630
+              </p>
+            </div>
           </section>
         </div>
 
@@ -191,6 +467,22 @@ export default function PrivacyPolicyPage() {
                       className="text-xs md:text-sm text-gray-400 hover:text-emerald-400 transition-colors"
                     >
                       Get Free Quote
+                    </Link>
+                  </li>
+                  <li>
+                    <Link
+                      href="/about"
+                      className="text-xs md:text-sm text-gray-400 hover:text-emerald-400 transition-colors"
+                    >
+                      About
+                    </Link>
+                  </li>
+                  <li>
+                    <Link
+                      href="/contact"
+                      className="text-xs md:text-sm text-gray-400 hover:text-emerald-400 transition-colors"
+                    >
+                      Contact
                     </Link>
                   </li>
                 </ul>

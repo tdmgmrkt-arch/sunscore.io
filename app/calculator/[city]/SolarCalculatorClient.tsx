@@ -1536,6 +1536,8 @@ export default function SolarCalculatorClient({
                 <a href="#calculator" className="text-sm text-gray-400 hover:text-emerald-400 transition-colors">Calculator</a>
                 <a href="#how-it-works" className="text-sm text-gray-400 hover:text-emerald-400 transition-colors">How it Works</a>
                 <a href="#faq" className="text-sm text-gray-400 hover:text-emerald-400 transition-colors">FAQ</a>
+                <Link href="/about" className="text-sm text-gray-400 hover:text-emerald-400 transition-colors">About</Link>
+                <Link href="/contact" className="text-sm text-gray-400 hover:text-emerald-400 transition-colors">Contact</Link>
               </nav>
             </div>
 

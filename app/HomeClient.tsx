@@ -757,7 +757,6 @@ export default function SolarCalculator() {
   const [hasInteracted, setHasInteracted] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
-  const [neighborCount, setNeighborCount] = useState(0);
   const [showStickyCTA, setShowStickyCTA] = useState(false);
 
   // Refs
@@ -861,11 +860,6 @@ export default function SolarCalculator() {
       setResults(newResults);
     }
   }, [debouncedMonthlyBill, calculateResults, hasInteracted, selectedStateId]);
-
-  // Generate random neighbor count on mount
-  useEffect(() => {
-    setNeighborCount(Math.floor(Math.random() * (180 - 120 + 1)) + 120);
-  }, []);
 
   // Restore calculator session from localStorage (for "Return to Estimate" flow)
   useEffect(() => {
@@ -1084,19 +1078,24 @@ export default function SolarCalculator() {
                 { label: "How it Works", href: "#how-it-works" },
                 { label: "Accuracy", href: "#accuracy" },
                 { label: "FAQ", href: "#faq" },
-              ].map((link) => (
-                <a
-                  key={link.href}
-                  href={link.href}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    document.getElementById(link.href.slice(1))?.scrollIntoView({ behavior: "smooth" });
-                  }}
-                  className="text-sm font-medium text-gray-400 hover:text-white transition-colors"
-                >
-                  {link.label}
-                </a>
-              ))}
+                { label: "About", href: "/about" },
+                { label: "Contact", href: "/contact" },
+              ].map((link) => {
+                const isAnchor = link.href.startsWith("#");
+                return (
+                  <a
+                    key={link.href}
+                    href={link.href}
+                    onClick={isAnchor ? (e) => {
+                      e.preventDefault();
+                      document.getElementById(link.href.slice(1))?.scrollIntoView({ behavior: "smooth" });
+                    } : undefined}
+                    className="text-sm font-medium text-gray-400 hover:text-white transition-colors"
+                  >
+                    {link.label}
+                  </a>
+                );
+              })}
             </div>
 
             {/* Right - Get Quote CTA */}
@@ -1261,17 +1260,6 @@ export default function SolarCalculator() {
                   </button>
                 </div>
 
-                {/* Social Proof - Below Address Input */}
-                {neighborCount > 0 && (
-                  <motion.p
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: 0.3 }}
-                    className="text-left text-sm text-gray-500 mt-3"
-                  >
-                    🔥 <span className="text-gray-400 font-medium">{neighborCount}</span> homeowners in your area checked their score today.
-                  </motion.p>
-                )}
               </div>
 
               {/* Monthly Bill Slider */}
@@ -1786,6 +1774,8 @@ export default function SolarCalculator() {
                     { label: "Accuracy", href: "#accuracy", isAnchor: true },
                     { label: "FAQ", href: "#faq", isAnchor: true },
                     { label: "Solar by State", href: "/locations", isAnchor: false },
+                    { label: "About", href: "/about", isAnchor: false },
+                    { label: "Contact", href: "/contact", isAnchor: false },
                   ].map((link) => (
                     <a
                       key={link.href}

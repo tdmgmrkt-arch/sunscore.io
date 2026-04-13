@@ -55,13 +55,6 @@ const softwareAppSchema = {
   },
   description:
     "Calculate your solar savings with official NREL government data. Get your personalized 25-year savings estimate instantly.",
-  aggregateRating: {
-    "@type": "AggregateRating",
-    ratingValue: "4.9",
-    ratingCount: "2847",
-    bestRating: "5",
-    worstRating: "1",
-  },
   featureList: [
     "Official NREL Solar Data",
     "State-Specific Pricing",

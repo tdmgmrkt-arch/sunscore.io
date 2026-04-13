@@ -1,13 +1,17 @@
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowLeft, FileText, ChevronRight } from "lucide-react";
+import { ArrowLeft, Sun, Database, Shield, ChevronRight, Zap, Target } from "lucide-react";
 
 export const metadata = {
-  title: "Terms of Service | SunScore",
-  description: "Terms and conditions for using the SunScore solar calculator.",
+  title: "About SunScore | Free Solar Savings Calculator",
+  description:
+    "SunScore is a free solar savings calculator powered by official NREL government data. Learn about our mission to make solar information accessible to every homeowner.",
+  alternates: {
+    canonical: `${process.env.NEXT_PUBLIC_APP_URL || "https://sunscore.io"}/about`,
+  },
 };
 
-export default function TermsOfServicePage() {
+export default function AboutPage() {
   return (
     <main className="min-h-screen bg-slate-950 text-slate-300">
       {/* Header */}
@@ -32,105 +36,115 @@ export default function TermsOfServicePage() {
         </nav>
       </header>
 
-      <div className="max-w-3xl mx-auto py-12 px-6">
+      {/* Main Content Area */}
+      <div className="max-w-5xl mx-auto py-12 px-6 md:py-20">
+        
         {/* Back Link */}
-        <Link
-          href="/"
-          className="inline-flex items-center gap-2 text-sm text-emerald-400 hover:text-emerald-300 transition-colors mb-8"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Back to Calculator
-        </Link>
+        <div className="mb-12">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-2 text-sm font-medium text-emerald-400 hover:text-emerald-300 transition-colors bg-emerald-500/10 px-4 py-2 rounded-full border border-emerald-500/20 w-fit"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to Calculator
+          </Link>
+        </div>
 
-        {/* Header */}
-        <div className="flex items-center gap-3 mb-8">
-          <div className="p-2 bg-emerald-500/20 rounded-lg">
-            <FileText className="w-6 h-6 text-emerald-400" />
-          </div>
-          <h1 className="text-3xl md:text-4xl font-bold text-slate-50">
-            Terms of Service
+        {/* Hero Section */}
+        <div className="max-w-2xl mb-16">
+          <h1 className="text-4xl md:text-5xl font-bold text-white tracking-tight mb-6">
+            Building a better way to explore solar.
           </h1>
-        </div>
-
-        {/* Content */}
-        <div className="prose prose-invert prose-slate max-w-none space-y-8">
-          <p className="text-slate-400 text-sm">Last Updated: January 2026</p>
-
-          <p className="text-lg leading-relaxed">
-            Please read these terms carefully before using the SunScore
-            (sunscore.io) solar savings calculator.
+          <p className="text-lg text-slate-400 leading-relaxed">
+            SunScore is a free solar analytics tool built to give homeowners a clear, honest picture of their energy potential—before they ever have to talk to a salesperson.
           </p>
-
-          <section className="space-y-4">
-            <h2 className="text-xl font-semibold text-slate-50">
-              1. Age Requirement
-            </h2>
-            <p className="leading-relaxed">
-              By using this site, you represent that you are at least 18 years
-              of age. If you are under 18, you may only use this site with the
-              involvement of a parent or guardian.
-            </p>
-          </section>
-
-          <section className="space-y-4">
-            <h2 className="text-xl font-semibold text-slate-50">
-              2. Educational Use Only
-            </h2>
-            <p className="leading-relaxed">
-              SunScore is a calculation tool designed for educational and
-              informational purposes. We are not a solar installer, contractor,
-              or licensed energy consultant. Our calculator provides estimates
-              to help you understand potential solar savings.
-            </p>
-          </section>
-
-          <section className="space-y-4">
-            <h2 className="text-xl font-semibold text-slate-50">
-              3. No Financial Advice
-            </h2>
-            <p className="leading-relaxed">
-              The savings figures displayed are estimates based on NREL
-              (National Renewable Energy Laboratory) data and are not
-              guaranteed. Actual results may vary significantly based on:
-            </p>
-            <ul className="list-disc list-inside space-y-2 text-slate-400">
-              <li>Your specific roof condition and orientation</li>
-              <li>Local shading from trees or buildings</li>
-              <li>Actual utility rates and rate changes</li>
-              <li>Equipment choices and installation quality</li>
-              <li>Local incentives and rebates</li>
-            </ul>
-            <p className="leading-relaxed">
-              We strongly recommend consulting with qualified solar
-              professionals and financial advisors before making any investment
-              decisions.
-            </p>
-          </section>
-
-          <section className="space-y-4">
-            <h2 className="text-xl font-semibold text-slate-50">
-              4. Limitation of Liability
-            </h2>
-            <p className="leading-relaxed">
-              SunScore and its operators shall not be liable for any direct,
-              indirect, incidental, special, or consequential damages resulting
-              from your use of the service. We are not responsible for financial
-              decisions made based on these estimates.
-            </p>
-          </section>
-
-          <section className="space-y-4">
-            <h2 className="text-xl font-semibold text-slate-50">
-              5. Changes to Terms
-            </h2>
-            <p className="leading-relaxed">
-              We reserve the right to modify these terms at any time. Continued
-              use of the service after changes constitutes acceptance of the new
-              terms.
-            </p>
-          </section>
         </div>
 
+        {/* Premium Grid Layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          
+          {/* Left Column: The Story (Spans 7 cols) */}
+          <div className="lg:col-span-7 space-y-6">
+            
+            {/* Mission Card */}
+            <div className="bg-slate-900/30 border border-slate-800/50 rounded-3xl p-8 lg:p-10 h-full">
+              <div className="flex items-center gap-3 mb-8">
+                <Target className="w-6 h-6 text-emerald-400" />
+                <h2 className="text-2xl font-semibold text-white">Why We Built This</h2>
+              </div>
+              
+              <div className="space-y-6 text-slate-400 leading-relaxed">
+                <p>
+                  Shopping for solar can be overwhelming. The industry is filled with aggressive sales tactics and opaque pricing.
+                </p>
+                <p>
+                  Most online &quot;calculators&quot; are thinly disguised lead-generation forms. They force you to hand over your phone number and email address, only to sell that data to a dozen installers before you ever see a single number.
+                </p>
+                <p>
+                  We wanted to build something completely different: a <strong>&quot;Glass Box&quot; tool</strong>.
+                </p>
+                <p>
+                  SunScore gives you the real math, upfront, with absolutely no strings attached. You get a personalized 25-year financial projection in seconds, completely anonymously.
+                </p>
+              </div>
+
+              {/* Transparency Callout */}
+              <div className="mt-10 pt-8 border-t border-slate-800/80">
+                <h3 className="text-lg font-semibold text-white mb-3">Transparency & Revenue</h3>
+                <p className="text-sm text-slate-400 leading-relaxed mb-4">
+                  SunScore is free to use because we earn referral fees if you choose to request a quote from our certified installation partners. 
+                </p>
+                <p className="text-sm text-slate-400 leading-relaxed">
+                  This never affects your calculator results. All data logic remains strictly independent. You can read our full <Link href="/disclaimer" className="text-emerald-400 hover:text-emerald-300 underline underline-offset-4">Affiliate Disclosure</Link> for complete transparency.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Column: Features & Tech (Spans 5 cols) */}
+          <div className="lg:col-span-5 space-y-6">
+            
+            {/* Feature 1: NREL */}
+            <div className="bg-slate-900/50 border border-slate-800/80 rounded-3xl p-8 hover:border-slate-700 transition-colors">
+              <div className="w-12 h-12 bg-emerald-500/10 rounded-2xl flex items-center justify-center mb-6">
+                <Database className="w-6 h-6 text-emerald-400" />
+              </div>
+              <h2 className="text-xl font-semibold text-white mb-3">Powered by Official Data</h2>
+              <p className="text-slate-400 text-sm leading-relaxed">
+                We pull hyper-local solar irradiance data directly from the National Renewable Energy Laboratory&apos;s (NREL) PVWatts API. It&apos;s the exact same baseline data source used by professional engineers and installers nationwide.
+              </p>
+            </div>
+
+            {/* Feature 2: Privacy */}
+            <div className="bg-slate-900/50 border border-slate-800/80 rounded-3xl p-8 hover:border-slate-700 transition-colors">
+              <div className="w-12 h-12 bg-blue-500/10 rounded-2xl flex items-center justify-center mb-6">
+                <Shield className="w-6 h-6 text-blue-400" />
+              </div>
+              <h2 className="text-xl font-semibold text-white mb-3">Privacy by Default</h2>
+              <p className="text-slate-400 text-sm leading-relaxed">
+                Your initial estimate is completely anonymous. We never require a phone number or email to show you the math. When you are ready to take the next step and talk to a pro, that is entirely your choice.
+              </p>
+            </div>
+
+            {/* CTA Box */}
+            <div className="bg-emerald-950/30 border border-emerald-900/50 rounded-3xl p-8">
+              <div className="w-12 h-12 bg-emerald-500/20 rounded-full flex items-center justify-center mb-6">
+                <Sun className="w-6 h-6 text-emerald-400" />
+              </div>
+              <h3 className="text-lg font-semibold text-white mb-2">Ready to see your numbers?</h3>
+              <p className="text-sm text-emerald-200/80 leading-relaxed mb-6">
+                Calculate your home&apos;s 25-year solar potential in seconds.
+              </p>
+              <Link
+                href="/"
+                className="inline-flex w-full items-center justify-center gap-2 px-6 py-3.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold rounded-xl transition-all"
+              >
+                Launch Calculator
+              </Link>
+            </div>
+
+          </div>
+        </div>
       </div>
 
       {/* Footer */}

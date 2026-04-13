@@ -1,9 +1,33 @@
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { cache } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { MapPin, ArrowLeft, ChevronRight } from "lucide-react";
-import { getTopCitiesForBuild, generateCitySlug } from "@/lib/cities";
+import {
+  MapPin,
+  ArrowLeft,
+  ChevronRight,
+  Sun,
+  DollarSign,
+  Zap,
+  Award,
+  ShieldCheck,
+} from "lucide-react";
+import { getTopCitiesForBuild, generateCitySlug, CityData } from "@/lib/cities";
+import { fetchNRELData, calculatePeakSunHours } from "@/utils/nrel";
+import { getElectricityRate } from "@/utils/electricity-rates";
+import { getPricePerWatt } from "@/utils/solar-pricing";
+import {
+  getStateIncentives,
+  getNetMeteringLabel,
+  StateIncentiveData,
+} from "@/lib/state-incentives";
+import {
+  getStateContentWithCache,
+  StateGeneratedContent,
+} from "@/utils/gemini";
+
+const currentYear = new Date().getFullYear();
 
 // =============================================================================
 // STATE NAME MAPPING
@@ -80,6 +104,87 @@ export async function generateStaticParams() {
 }
 
 // =============================================================================
+// SHARED DATA FETCHER (deduped across generateMetadata & page)
+// =============================================================================
+
+interface StatePageData {
+  stateId: string;
+  stateName: string;
+  stateCities: CityData[];
+  avgSunHours: number;
+  electricityRate: number;
+  pricePerWatt: number;
+  incentives: StateIncentiveData | null;
+  content: StateGeneratedContent;
+}
+
+const getStatePageData = cache(
+  async (stateSlug: string): Promise<StatePageData | null> => {
+    const stateUpper = stateSlug.toUpperCase();
+    const stateName = STATE_NAMES[stateUpper];
+    if (!stateName) return null;
+
+    const allCities = getTopCitiesForBuild(1000);
+    const stateCities = allCities
+      .filter((city) => city.state_id.toUpperCase() === stateUpper)
+      .sort((a, b) => a.city.localeCompare(b.city));
+
+    if (stateCities.length === 0) return null;
+
+    // Use the most populous city as a proxy for state-wide solar conditions.
+    // NREL is cached for 30 days, so this is effectively a per-state one-time fetch.
+    const topCity = [...stateCities].sort(
+      (a, b) => parseInt(b.population || "0") - parseInt(a.population || "0")
+    )[0];
+
+    let avgSunHours = 4.5;
+    try {
+      const nrel = await fetchNRELData(
+        topCity.lat,
+        topCity.lng,
+        stateUpper,
+        generateCitySlug(topCity.city_ascii, stateUpper)
+      );
+      avgSunHours = calculatePeakSunHours(nrel.solrad_annual);
+    } catch (error) {
+      console.error(`Failed to fetch NREL sun hours for ${stateName}:`, error);
+    }
+
+    const electricityRate = getElectricityRate(stateUpper);
+    const pricePerWatt = getPricePerWatt(stateUpper);
+    const incentives = getStateIncentives(stateUpper);
+
+    const content = await getStateContentWithCache({
+      stateId: stateUpper,
+      stateName,
+      cityCount: stateCities.length,
+      avgSunHours,
+      electricityRate,
+      pricePerWatt,
+      solarClimate: incentives?.solarClimate ?? "good",
+      netMeteringLabel: incentives
+        ? getNetMeteringLabel(incentives.netMetering)
+        : "Policy Varies",
+      hasStateIncentive: incentives?.stateIncentive ?? false,
+      stateIncentiveNote: incentives?.stateIncentiveNote,
+      hasSrecMarket: incentives?.srecMarket ?? false,
+      currentYear,
+    });
+
+    return {
+      stateId: stateUpper,
+      stateName,
+      stateCities,
+      avgSunHours,
+      electricityRate,
+      pricePerWatt,
+      incentives,
+      content,
+    };
+  }
+);
+
+// =============================================================================
 // METADATA
 // =============================================================================
 
@@ -89,16 +194,27 @@ interface PageProps {
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { state } = await params;
-  const stateUpper = state.toUpperCase();
-  const stateName = STATE_NAMES[stateUpper] || stateUpper;
+  const data = await getStatePageData(state);
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://sunscore.io";
 
+  if (!data) {
+    return {
+      title: "State Not Found | SunScore",
+    };
+  }
+
   return {
-    title: `Solar Calculators in ${stateName} | SunScore`,
-    description: `Find solar savings calculators for cities in ${stateName}. Get personalized 25-year savings estimates based on official NREL data.`,
+    title: data.content.title,
+    description: data.content.meta_description,
     openGraph: {
-      title: `Solar Calculators in ${stateName} | SunScore`,
-      description: `Find solar savings calculators for cities in ${stateName}. Get personalized 25-year savings estimates based on official NREL data.`,
+      title: data.content.title,
+      description: data.content.meta_description,
+      url: `${baseUrl}/locations/${state}`,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: data.content.title,
+      description: data.content.meta_description,
     },
     alternates: {
       canonical: `${baseUrl}/locations/${state}`,
@@ -112,25 +228,22 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function StateCitiesPage({ params }: PageProps) {
   const { state } = await params;
-  const stateUpper = state.toUpperCase();
-  const stateName = STATE_NAMES[stateUpper];
+  const data = await getStatePageData(state);
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://sunscore.io";
 
-  // Validate state exists
-  if (!stateName) {
+  if (!data) {
     notFound();
   }
 
-  // Get cities for this state
-  const allCities = getTopCitiesForBuild(1000);
-  const stateCities = allCities
-    .filter((city) => city.state_id.toUpperCase() === stateUpper)
-    .sort((a, b) => a.city.localeCompare(b.city));
-
-  // If no cities found for this state, show 404
-  if (stateCities.length === 0) {
-    notFound();
-  }
+  const {
+    stateName,
+    stateCities,
+    avgSunHours,
+    electricityRate,
+    pricePerWatt,
+    incentives,
+    content,
+  } = data;
 
   // BreadcrumbList Schema for SEO
   const breadcrumbSchema = {
@@ -210,21 +323,194 @@ export default async function StateCitiesPage({ params }: PageProps) {
               <span>{stateCities.length} Cities</span>
             </div>
             <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight">
-              Solar Calculators in{" "}
+              {content.h1.split(stateName)[0]}
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-green-400 to-emerald-300">
                 {stateName}
               </span>
             </h1>
-            <p className="text-base md:text-lg text-gray-400 max-w-2xl mx-auto">
-              Select a city to calculate your personalized solar savings based on
-              local sun exposure and utility rates.
-            </p>
+            <div
+              className="text-base md:text-lg text-gray-400 max-w-2xl mx-auto [&>p]:m-0 [&_strong]:text-emerald-400"
+              dangerouslySetInnerHTML={{ __html: content.intro_content }}
+            />
           </div>
         </div>
       </section>
 
+      {/* Key Stats Bar */}
+      <section className="max-w-5xl mx-auto px-5 md:px-4 pb-8">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="p-4 bg-gradient-to-br from-gray-900/90 via-slate-950/95 to-gray-900/90 border border-gray-800/50 rounded-xl">
+            <div className="flex items-center gap-2 text-gray-500 text-xs uppercase tracking-wide mb-1">
+              <Sun className="w-3.5 h-3.5" />
+              Peak Sun Hours
+            </div>
+            <div className="text-xl md:text-2xl font-bold text-white">
+              {avgSunHours.toFixed(1)}
+              <span className="text-xs font-normal text-gray-500 ml-1">hrs/day</span>
+            </div>
+          </div>
+          <div className="p-4 bg-gradient-to-br from-gray-900/90 via-slate-950/95 to-gray-900/90 border border-gray-800/50 rounded-xl">
+            <div className="flex items-center gap-2 text-gray-500 text-xs uppercase tracking-wide mb-1">
+              <Zap className="w-3.5 h-3.5" />
+              Avg Electricity
+            </div>
+            <div className="text-xl md:text-2xl font-bold text-white">
+              ${electricityRate.toFixed(2)}
+              <span className="text-xs font-normal text-gray-500 ml-1">/kWh</span>
+            </div>
+          </div>
+          <div className="p-4 bg-gradient-to-br from-gray-900/90 via-slate-950/95 to-gray-900/90 border border-gray-800/50 rounded-xl">
+            <div className="flex items-center gap-2 text-gray-500 text-xs uppercase tracking-wide mb-1">
+              <DollarSign className="w-3.5 h-3.5" />
+              Install Cost
+            </div>
+            <div className="text-xl md:text-2xl font-bold text-white">
+              ${pricePerWatt.toFixed(2)}
+              <span className="text-xs font-normal text-gray-500 ml-1">/watt</span>
+            </div>
+          </div>
+          <div className="p-4 bg-gradient-to-br from-gray-900/90 via-slate-950/95 to-gray-900/90 border border-gray-800/50 rounded-xl">
+            <div className="flex items-center gap-2 text-gray-500 text-xs uppercase tracking-wide mb-1">
+              <MapPin className="w-3.5 h-3.5" />
+              Cities Covered
+            </div>
+            <div className="text-xl md:text-2xl font-bold text-white">
+              {stateCities.length}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* State Overview (AI-generated) */}
+      <section className="max-w-5xl mx-auto px-5 md:px-4 pb-10">
+        <div
+          className="p-6 md:p-8 bg-gradient-to-br from-gray-900/90 via-slate-950/95 to-gray-900/90 border border-cyan-500/20 rounded-2xl
+            [&>h3]:text-lg [&>h3]:md:text-xl [&>h3]:font-bold [&>h3]:text-white [&>h3]:mb-3 [&>h3]:mt-6 [&>h3:first-child]:mt-0
+            [&>p]:text-gray-300 [&>p]:leading-relaxed [&>p]:text-sm [&>p]:md:text-base [&>p]:mb-4
+            [&_strong]:text-emerald-400 [&_strong]:font-semibold"
+          style={{
+            boxShadow:
+              "0 0 30px rgba(6, 182, 212, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.05)",
+          }}
+          dangerouslySetInnerHTML={{ __html: content.overview_content }}
+        />
+      </section>
+
+      {/* State Incentives & Policies */}
+      {incentives && (
+        <section className="max-w-5xl mx-auto px-5 md:px-4 pb-10">
+          <div className="mb-6">
+            <h2 className="text-2xl md:text-3xl font-bold text-white mb-2">
+              {stateName} Solar Policies &amp; Incentives
+            </h2>
+            <p className="text-sm text-gray-500">
+              Key regulatory and incentive programs that affect your solar economics.
+            </p>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            {/* Net Metering */}
+            <div className="p-5 bg-slate-900/50 border border-slate-800/50 rounded-xl">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="p-1.5 bg-emerald-500/20 rounded-lg">
+                  <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                </div>
+                <h3 className="text-sm font-semibold text-white">Net Metering</h3>
+              </div>
+              <div className="text-sm font-bold text-emerald-400 mb-2">
+                {getNetMeteringLabel(incentives.netMetering)}
+              </div>
+              <p className="text-xs text-gray-400 leading-relaxed">
+                {incentives.netMeteringNote}
+              </p>
+            </div>
+
+            {/* State Incentive */}
+            <div className="p-5 bg-slate-900/50 border border-slate-800/50 rounded-xl">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="p-1.5 bg-emerald-500/20 rounded-lg">
+                  <Award className="w-4 h-4 text-emerald-400" />
+                </div>
+                <h3 className="text-sm font-semibold text-white">State Incentive</h3>
+              </div>
+              <div className="text-sm font-bold text-emerald-400 mb-2">
+                {incentives.stateIncentive ? "Available" : "None at State Level"}
+              </div>
+              <p className="text-xs text-gray-400 leading-relaxed">
+                {incentives.stateIncentiveNote ||
+                  `${stateName} does not currently offer a state-level solar tax credit or rebate beyond federal programs.`}
+              </p>
+            </div>
+
+            {/* SREC Market */}
+            <div className="p-5 bg-slate-900/50 border border-slate-800/50 rounded-xl">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="p-1.5 bg-emerald-500/20 rounded-lg">
+                  <Zap className="w-4 h-4 text-emerald-400" />
+                </div>
+                <h3 className="text-sm font-semibold text-white">SREC Market</h3>
+              </div>
+              <div className="text-sm font-bold text-emerald-400 mb-2">
+                {incentives.srecMarket ? "Active" : "No SREC Market"}
+              </div>
+              <p className="text-xs text-gray-400 leading-relaxed">
+                {incentives.srecNote ||
+                  `${stateName} does not have a Solar Renewable Energy Certificate market. Savings come primarily from electricity bill reductions.`}
+              </p>
+            </div>
+
+            {/* Tax Exemptions */}
+            <div className="p-5 bg-slate-900/50 border border-slate-800/50 rounded-xl">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="p-1.5 bg-emerald-500/20 rounded-lg">
+                  <DollarSign className="w-4 h-4 text-emerald-400" />
+                </div>
+                <h3 className="text-sm font-semibold text-white">Tax Exemptions</h3>
+              </div>
+              <div className="text-sm font-bold text-emerald-400 mb-2">
+                {incentives.propertyTaxExemption && incentives.salesTaxExemption
+                  ? "Property + Sales"
+                  : incentives.propertyTaxExemption
+                  ? "Property Tax Only"
+                  : incentives.salesTaxExemption
+                  ? "Sales Tax Only"
+                  : "No Exemptions"}
+              </div>
+              <p className="text-xs text-gray-400 leading-relaxed">
+                {incentives.propertyTaxExemption
+                  ? `Adding solar will not increase your property tax assessment in ${stateName}. `
+                  : `${stateName} does not offer a property tax exemption for solar. `}
+                {incentives.salesTaxExemption
+                  ? "Solar equipment is exempt from state sales tax."
+                  : "Solar equipment is subject to standard state sales tax."}
+              </p>
+            </div>
+          </div>
+          <p className="text-[10px] text-gray-600 mt-4 leading-relaxed">
+            Policy information is provided as a general reference and may change.
+            For authoritative, current details, consult the{" "}
+            <a
+              href="https://www.dsireusa.org/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-emerald-500 hover:text-emerald-400 underline"
+            >
+              DSIRE database
+            </a>{" "}
+            or your state energy office.
+          </p>
+        </section>
+      )}
+
       {/* Cities Grid */}
       <section className="max-w-5xl mx-auto px-5 md:px-4 pb-20">
+        <div className="mb-6">
+          <h2 className="text-2xl md:text-3xl font-bold text-white mb-2">
+            Solar Calculators by City
+          </h2>
+          <p className="text-sm text-gray-500">
+            Select a city for a personalized 25-year savings estimate using NREL data.
+          </p>
+        </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
           {stateCities.map((city) => {
             const slug = generateCitySlug(city.city_ascii, city.state_id);
@@ -322,6 +608,22 @@ export default async function StateCitiesPage({ params }: PageProps) {
                       className="text-xs md:text-sm text-gray-400 hover:text-emerald-400 transition-colors"
                     >
                       Get Free Quote
+                    </Link>
+                  </li>
+                  <li>
+                    <Link
+                      href="/about"
+                      className="text-xs md:text-sm text-gray-400 hover:text-emerald-400 transition-colors"
+                    >
+                      About
+                    </Link>
+                  </li>
+                  <li>
+                    <Link
+                      href="/contact"
+                      className="text-xs md:text-sm text-gray-400 hover:text-emerald-400 transition-colors"
+                    >
+                      Contact
                     </Link>
                   </li>
                 </ul>

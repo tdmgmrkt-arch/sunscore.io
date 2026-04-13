@@ -256,6 +256,22 @@ export default function LocationsPage() {
                       Get Free Quote
                     </Link>
                   </li>
+                  <li>
+                    <Link
+                      href="/about"
+                      className="text-xs md:text-sm text-gray-400 hover:text-emerald-400 transition-colors"
+                    >
+                      About
+                    </Link>
+                  </li>
+                  <li>
+                    <Link
+                      href="/contact"
+                      className="text-xs md:text-sm text-gray-400 hover:text-emerald-400 transition-colors"
+                    >
+                      Contact
+                    </Link>
+                  </li>
                 </ul>
               </details>
             </div>

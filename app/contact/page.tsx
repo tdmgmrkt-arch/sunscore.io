@@ -1,13 +1,17 @@
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowLeft, FileText, ChevronRight } from "lucide-react";
+import { ArrowLeft, Mail, ChevronRight, MapPin, MessageSquare, AlertCircle } from "lucide-react";
 
 export const metadata = {
-  title: "Terms of Service | SunScore",
-  description: "Terms and conditions for using the SunScore solar calculator.",
+  title: "Contact Us | SunScore",
+  description:
+    "Get in touch with the SunScore team. Questions about your solar estimate, partnerships, or general inquiries.",
+  alternates: {
+    canonical: `${process.env.NEXT_PUBLIC_APP_URL || "https://sunscore.io"}/contact`,
+  },
 };
 
-export default function TermsOfServicePage() {
+export default function ContactPage() {
   return (
     <main className="min-h-screen bg-slate-950 text-slate-300">
       {/* Header */}
@@ -32,105 +36,128 @@ export default function TermsOfServicePage() {
         </nav>
       </header>
 
-      <div className="max-w-3xl mx-auto py-12 px-6">
+      {/* Main Content Area */}
+      <div className="max-w-5xl mx-auto py-12 px-6 md:py-20">
+        
         {/* Back Link */}
-        <Link
-          href="/"
-          className="inline-flex items-center gap-2 text-sm text-emerald-400 hover:text-emerald-300 transition-colors mb-8"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Back to Calculator
-        </Link>
+        <div className="mb-12">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-2 text-sm font-medium text-emerald-400 hover:text-emerald-300 transition-colors bg-emerald-500/10 px-4 py-2 rounded-full border border-emerald-500/20 w-fit"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to Calculator
+          </Link>
+        </div>
 
-        {/* Header */}
-        <div className="flex items-center gap-3 mb-8">
-          <div className="p-2 bg-emerald-500/20 rounded-lg">
-            <FileText className="w-6 h-6 text-emerald-400" />
-          </div>
-          <h1 className="text-3xl md:text-4xl font-bold text-slate-50">
-            Terms of Service
+        {/* Hero Section */}
+        <div className="max-w-2xl mb-16">
+          <h1 className="text-4xl md:text-5xl font-bold text-white tracking-tight mb-6">
+            Get in touch
           </h1>
-        </div>
-
-        {/* Content */}
-        <div className="prose prose-invert prose-slate max-w-none space-y-8">
-          <p className="text-slate-400 text-sm">Last Updated: January 2026</p>
-
-          <p className="text-lg leading-relaxed">
-            Please read these terms carefully before using the SunScore
-            (sunscore.io) solar savings calculator.
+          <p className="text-lg text-slate-400 leading-relaxed">
+            Have a question about your solar estimate, interested in partnering
+            with us, or just want to say hello? Our team is here to help.
           </p>
-
-          <section className="space-y-4">
-            <h2 className="text-xl font-semibold text-slate-50">
-              1. Age Requirement
-            </h2>
-            <p className="leading-relaxed">
-              By using this site, you represent that you are at least 18 years
-              of age. If you are under 18, you may only use this site with the
-              involvement of a parent or guardian.
-            </p>
-          </section>
-
-          <section className="space-y-4">
-            <h2 className="text-xl font-semibold text-slate-50">
-              2. Educational Use Only
-            </h2>
-            <p className="leading-relaxed">
-              SunScore is a calculation tool designed for educational and
-              informational purposes. We are not a solar installer, contractor,
-              or licensed energy consultant. Our calculator provides estimates
-              to help you understand potential solar savings.
-            </p>
-          </section>
-
-          <section className="space-y-4">
-            <h2 className="text-xl font-semibold text-slate-50">
-              3. No Financial Advice
-            </h2>
-            <p className="leading-relaxed">
-              The savings figures displayed are estimates based on NREL
-              (National Renewable Energy Laboratory) data and are not
-              guaranteed. Actual results may vary significantly based on:
-            </p>
-            <ul className="list-disc list-inside space-y-2 text-slate-400">
-              <li>Your specific roof condition and orientation</li>
-              <li>Local shading from trees or buildings</li>
-              <li>Actual utility rates and rate changes</li>
-              <li>Equipment choices and installation quality</li>
-              <li>Local incentives and rebates</li>
-            </ul>
-            <p className="leading-relaxed">
-              We strongly recommend consulting with qualified solar
-              professionals and financial advisors before making any investment
-              decisions.
-            </p>
-          </section>
-
-          <section className="space-y-4">
-            <h2 className="text-xl font-semibold text-slate-50">
-              4. Limitation of Liability
-            </h2>
-            <p className="leading-relaxed">
-              SunScore and its operators shall not be liable for any direct,
-              indirect, incidental, special, or consequential damages resulting
-              from your use of the service. We are not responsible for financial
-              decisions made based on these estimates.
-            </p>
-          </section>
-
-          <section className="space-y-4">
-            <h2 className="text-xl font-semibold text-slate-50">
-              5. Changes to Terms
-            </h2>
-            <p className="leading-relaxed">
-              We reserve the right to modify these terms at any time. Continued
-              use of the service after changes constitutes acceptance of the new
-              terms.
-            </p>
-          </section>
         </div>
 
+        {/* Premium Grid Layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          
+          {/* Left Column: Direct Contact Cards (Spans 5 cols) */}
+          <div className="lg:col-span-5 space-y-6">
+            
+            {/* Email Card */}
+            <div className="bg-slate-900/50 border border-slate-800/80 rounded-3xl p-8 hover:border-emerald-500/30 transition-colors">
+              <div className="w-12 h-12 bg-emerald-500/10 rounded-2xl flex items-center justify-center mb-6">
+                <Mail className="w-6 h-6 text-emerald-400" />
+              </div>
+              <h2 className="text-xl font-semibold text-white mb-2">Email Us</h2>
+              <p className="text-slate-400 mb-6 text-sm leading-relaxed">
+                The fastest way to reach us. We typically respond within 1–2 business days.
+              </p>
+              <a
+                href="mailto:hello@sunscore.io"
+                className="inline-flex w-full items-center justify-center gap-2 px-6 py-3.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-semibold rounded-xl transition-all"
+              >
+                hello@sunscore.io
+              </a>
+            </div>
+
+            {/* Address Card */}
+            <div className="bg-slate-900/50 border border-slate-800/80 rounded-3xl p-8 hover:border-slate-700 transition-colors">
+              <div className="w-12 h-12 bg-slate-800 rounded-2xl flex items-center justify-center mb-6">
+                <MapPin className="w-6 h-6 text-slate-400" />
+              </div>
+              <h2 className="text-xl font-semibold text-white mb-2">Mailing Address</h2>
+              <p className="text-slate-400 text-sm leading-relaxed">
+                SunScore<br />
+                PO Box 614<br />
+                Folsom, CA 95630
+              </p>
+            </div>
+          </div>
+
+          {/* Right Column: Informational Cards (Spans 7 cols) */}
+          <div className="lg:col-span-7 space-y-6">
+            
+            {/* Common Inquiries Card */}
+            <div className="bg-slate-900/30 border border-slate-800/50 rounded-3xl p-8 lg:p-10 h-full">
+              <div className="flex items-center gap-3 mb-8">
+                <MessageSquare className="w-5 h-5 text-emerald-400" />
+                <h2 className="text-xl font-semibold text-white">How can we help?</h2>
+              </div>
+
+              <div className="space-y-8">
+                {/* Item 1 */}
+                <div>
+                  <h3 className="text-slate-200 font-medium mb-2 flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-400"></div>
+                    Solar Estimate Questions
+                  </h3>
+                  <p className="text-slate-400 text-sm leading-relaxed pl-3.5 border-l border-slate-800 ml-[3px]">
+                    Need help understanding your SunScore results or savings estimate? Include your city and state in your email so we can pull up the correct local data.
+                  </p>
+                </div>
+
+                {/* Item 2 */}
+                <div>
+                  <h3 className="text-slate-200 font-medium mb-2 flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-400"></div>
+                    Partnerships & Affiliates
+                  </h3>
+                  <p className="text-slate-400 text-sm leading-relaxed pl-3.5 border-l border-slate-800 ml-[3px]">
+                    Interested in working with SunScore? We actively partner with verified solar installers, local energy companies, and content creators.
+                  </p>
+                </div>
+
+                {/* Item 3 */}
+                <div>
+                  <h3 className="text-slate-200 font-medium mb-2 flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-400"></div>
+                    Press & Media
+                  </h3>
+                  <p className="text-slate-400 text-sm leading-relaxed pl-3.5 border-l border-slate-800 ml-[3px]">
+                    For media inquiries or data requests regarding local solar trends, please reach out with &quot;Press&quot; in the subject line.
+                  </p>
+                </div>
+              </div>
+
+              {/* Disclaimer Box inside the right column */}
+              <div className="mt-10 p-5 bg-emerald-950/30 border border-emerald-900/50 rounded-2xl flex gap-4">
+                <AlertCircle className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" />
+                <p className="text-sm text-emerald-200/80 leading-relaxed">
+                  SunScore is an educational solar analytics platform. We do not install solar panels. To get actual installation pricing, use our{" "}
+                  <Link href="/quote" className="text-emerald-400 hover:text-emerald-300 font-medium underline underline-offset-4">
+                    Get a Quote
+                  </Link>{" "}
+                  page to connect with local professionals.
+                </p>
+              </div>
+
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Footer */}

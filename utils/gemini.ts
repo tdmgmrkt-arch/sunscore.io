@@ -227,3 +227,194 @@ export async function getCityContentWithCache(
 
   return content;
 }
+
+// =============================================================================
+// STATE PAGE CONTENT GENERATION
+// =============================================================================
+
+export interface StateGeneratedContent {
+  title: string;
+  meta_description: string;
+  h1: string;
+  intro_content: string; // One punchy paragraph for hero
+  overview_content: string; // Two paragraphs covering climate + economics
+}
+
+export interface StateContentInput {
+  stateId: string;
+  stateName: string;
+  cityCount: number;
+  avgSunHours: number;
+  electricityRate: number; // dollars per kWh
+  pricePerWatt: number;
+  solarClimate: "excellent" | "strong" | "good" | "moderate";
+  netMeteringLabel: string;
+  hasStateIncentive: boolean;
+  stateIncentiveNote?: string;
+  hasSrecMarket: boolean;
+  currentYear: number;
+}
+
+export async function generateStateContent(
+  input: StateContentInput
+): Promise<StateGeneratedContent> {
+  const API_KEY = process.env.GEMINI_API_KEY;
+
+  if (!API_KEY) {
+    console.warn("GEMINI_API_KEY not set, using fallback state content");
+    return getFallbackStateContent(input);
+  }
+
+  const targetKeyword = `Solar panels in ${input.stateName}`;
+  const ratePerKwh = `$${input.electricityRate.toFixed(2)}/kWh`;
+  const pricePerWatt = `$${input.pricePerWatt.toFixed(2)}/W`;
+
+  const prompt = `You are an SEO content writer for a solar savings calculator. Generate content for a ${input.stateName} state landing page.
+
+STRICT FACTUAL DATA (use these exact numbers, do not invent others):
+- Keyword: "${targetKeyword}"
+- State: ${input.stateName} (${input.stateId})
+- Average Peak Sun Hours: ${input.avgSunHours.toFixed(1)} hours/day
+- Solar Climate Rating: ${input.solarClimate}
+- Average Residential Electricity Rate: ${ratePerKwh}
+- Average Installed Cost: ${pricePerWatt}
+- Net Metering Status: ${input.netMeteringLabel}
+- State Incentive Available: ${input.hasStateIncentive ? "Yes" : "No"}${input.stateIncentiveNote ? ` (${input.stateIncentiveNote})` : ""}
+- SREC Market: ${input.hasSrecMarket ? "Yes" : "No"}
+- Cities covered: ${input.cityCount}
+
+OUTPUT REQUIREMENTS (JSON ONLY):
+1. title: SEO title starting with "${targetKeyword}" and ending with "| SunScore"
+2. meta_description: 150-160 char description mentioning the sun hours and electricity rate. Click-worthy but factual.
+3. h1: Exact keyword "${targetKeyword}"
+4. intro_content: ONE HTML paragraph (<p> tag only, 50-70 words). Hook the user with ${input.stateName}'s specific solar economics using the exact numbers above. No tax credit mentions. No hyperbole.
+5. overview_content: TWO HTML sections each with an <h3> header followed by a <p>. First section covers ${input.stateName}'s solar climate and production potential. Second section covers the financial picture (electricity rates, install cost, net metering policy). Use the exact data above. Weave in the net metering status naturally. 80-120 words per paragraph. No mentions of federal ITC or tax credits.
+
+Return ONLY valid JSON with no markdown code fences.`;
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${API_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: {
+            temperature: 0.7,
+            maxOutputTokens: 1500,
+            responseMimeType: "application/json",
+          },
+        }),
+        signal: controller.signal,
+      }
+    );
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      console.error(`Gemini state API error: ${response.status}`);
+      return getFallbackStateContent(input);
+    }
+
+    const data: GeminiResponse = await response.json();
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+
+    if (!text) {
+      console.error("No text in Gemini state response");
+      return getFallbackStateContent(input);
+    }
+
+    return parseAndValidateStateContent(text, input);
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      console.error("Gemini state API request timed out");
+    } else {
+      console.error("Gemini state API error:", error);
+    }
+    return getFallbackStateContent(input);
+  }
+}
+
+function parseAndValidateStateContent(
+  text: string,
+  input: StateContentInput
+): StateGeneratedContent {
+  try {
+    let cleanText = text.trim();
+    if (cleanText.startsWith("```json")) cleanText = cleanText.slice(7);
+    if (cleanText.startsWith("```")) cleanText = cleanText.slice(3);
+    if (cleanText.endsWith("```")) cleanText = cleanText.slice(0, -3);
+    cleanText = cleanText.trim();
+
+    let parsed = JSON.parse(cleanText);
+    if (Array.isArray(parsed) && parsed.length > 0) parsed = parsed[0];
+
+    const required = ["title", "meta_description", "h1", "intro_content", "overview_content"];
+    const missing = required.filter((f) => !parsed[f]);
+    if (missing.length > 0) {
+      console.warn(`Missing state fields from Gemini: ${missing.join(", ")}`);
+      return getFallbackStateContent(input);
+    }
+
+    const targetKeyword = `Solar panels in ${input.stateName}`;
+    if (parsed.h1 !== targetKeyword) parsed.h1 = targetKeyword;
+    if (!parsed.title.toLowerCase().startsWith(targetKeyword.toLowerCase())) {
+      parsed.title = `${targetKeyword} ${input.currentYear} | SunScore`;
+    }
+
+    return parsed;
+  } catch (parseError) {
+    console.error("Failed to parse Gemini state JSON:", parseError);
+    return getFallbackStateContent(input);
+  }
+}
+
+function getFallbackStateContent(input: StateContentInput): StateGeneratedContent {
+  const targetKeyword = `Solar panels in ${input.stateName}`;
+  const ratePerKwh = `$${input.electricityRate.toFixed(2)}`;
+  const pricePerWatt = `$${input.pricePerWatt.toFixed(2)}`;
+  const climateDescriptor =
+    input.solarClimate === "excellent"
+      ? "some of the best solar conditions in the country"
+      : input.solarClimate === "strong"
+      ? "strong solar production potential"
+      : input.solarClimate === "good"
+      ? "solid solar production potential"
+      : "moderate but workable solar conditions";
+
+  return {
+    title: `${targetKeyword} ${input.currentYear} - Costs, Savings & Incentives | SunScore`,
+    meta_description: `Compare solar savings across ${input.stateName}. ${input.avgSunHours.toFixed(1)} peak sun hours, ${ratePerKwh}/kWh electricity rates, and ${pricePerWatt}/W install costs. Free calculator for ${input.cityCount} cities.`,
+    h1: targetKeyword,
+    intro_content: `<p>${input.stateName} offers ${climateDescriptor}, averaging <strong>${input.avgSunHours.toFixed(1)} peak sun hours</strong> per day. With residential electricity rates around <strong>${ratePerKwh}/kWh</strong> and installed solar costs near <strong>${pricePerWatt}/W</strong>, homeowners across ${input.stateName} are using their rooftops to lock in predictable energy costs for decades.</p>`,
+    overview_content: `<h3>Solar Production Potential in ${input.stateName}</h3>
+<p>With ${input.avgSunHours.toFixed(1)} peak sun hours per day on average, ${input.stateName} has ${climateDescriptor}. A typical residential system produces enough electricity to offset a meaningful portion of the average household's usage&mdash;and in many ${input.stateName} cities, full offset is achievable with a properly sized installation. Actual production varies by roof orientation, shading, and local microclimate, which is why our calculator pulls location-specific data from NREL for every address.</p>
+<h3>The Financial Picture: Rates, Costs &amp; Policy</h3>
+<p>${input.stateName} residents pay an average of ${ratePerKwh}/kWh for electricity, and installed solar costs average ${pricePerWatt}/W before incentives. The state operates under <strong>${input.netMeteringLabel}</strong>, which directly affects how much value you capture from excess generation.${input.hasStateIncentive && input.stateIncentiveNote ? ` ${input.stateName} also offers additional state-level support: ${input.stateIncentiveNote}` : ""}${input.hasSrecMarket ? ` ${input.stateName} has an active SREC market, which can provide ongoing payments on top of energy savings.` : ""} Use the city calculators below to see a personalized 25-year projection for your address.</p>`,
+  };
+}
+
+const stateContentCache = new Map<string, { content: StateGeneratedContent; timestamp: number }>();
+
+export async function getStateContentWithCache(
+  input: StateContentInput
+): Promise<StateGeneratedContent> {
+  const cacheKey = `${input.stateId}-${input.currentYear}`;
+  const cached = stateContentCache.get(cacheKey);
+
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    return cached.content;
+  }
+
+  const content = await generateStateContent(input);
+
+  stateContentCache.set(cacheKey, {
+    content,
+    timestamp: Date.now(),
+  });
+
+  return content;
+}

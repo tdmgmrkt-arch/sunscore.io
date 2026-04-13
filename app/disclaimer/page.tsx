@@ -61,7 +61,7 @@ export default function DisclaimerPage() {
             estimates.
           </p>
 
-          {/* 1. Affiliate Disclosure - Updated for Awin */}
+          {/* 1. Affiliate Disclosure - Updated for FlexOffers */}
           <section className="space-y-4">
             <h2 className="text-xl font-semibold text-slate-50">
               1. Affiliate Disclosure
@@ -69,7 +69,7 @@ export default function DisclaimerPage() {
             <div className="p-5 bg-yellow-500/10 border border-yellow-500/30 rounded-xl">
               <p className="leading-relaxed text-yellow-200/90">
                 <strong>Important:</strong> SunScore is a participant in the
-                Awin affiliate network. This means we have commercial
+                FlexOffers affiliate network. This means we have commercial
                 relationships with solar installation partners and may earn a
                 commission if you request a quote.
               </p>
@@ -194,6 +194,22 @@ export default function DisclaimerPage() {
                       className="text-xs md:text-sm text-gray-400 hover:text-emerald-400 transition-colors"
                     >
                       Get Free Quote
+                    </Link>
+                  </li>
+                  <li>
+                    <Link
+                      href="/about"
+                      className="text-xs md:text-sm text-gray-400 hover:text-emerald-400 transition-colors"
+                    >
+                      About
+                    </Link>
+                  </li>
+                  <li>
+                    <Link
+                      href="/contact"
+                      className="text-xs md:text-sm text-gray-400 hover:text-emerald-400 transition-colors"
+                    >
+                      Contact
                     </Link>
                   </li>
                 </ul>
